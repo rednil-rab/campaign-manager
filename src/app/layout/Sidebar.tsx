@@ -1,21 +1,42 @@
-import { NavLink } from 'react-router-dom';
-import { useCampaignName } from '../../store/campaignStore';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useCampaignStore } from '../../store/campaignStore';
 
+// Relative targets resolve against the /c/:campaignId route this renders in.
 const links = [
-  { to: '/', label: 'Dashboard', end: true },
-  { to: '/sessions', label: 'Sessions' },
-  { to: '/quests', label: 'Quests' },
-  { to: '/npcs', label: 'NPC Codex' },
+  { to: '.', label: 'Dashboard', end: true },
+  { to: 'sessions', label: 'Sessions' },
+  { to: 'quests', label: 'Quests' },
+  { to: 'npcs', label: 'NPC Codex' },
 ];
 
 export function Sidebar() {
-  const campaignName = useCampaignName();
+  const navigate = useNavigate();
+  const order = useCampaignStore((s) => s.order);
+  const campaigns = useCampaignStore((s) => s.campaigns);
+  const activeId = useCampaignStore((s) => s.activeCampaignId);
+
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">Questkeeper</div>
       <div className="sidebar__campaign">
-        <span className="sidebar__label">Campaign</span>
-        {campaignName}
+        <label className="sidebar__label" htmlFor="campaign-switcher">
+          Campaign
+        </label>
+        <select
+          id="campaign-switcher"
+          className="input"
+          value={activeId ?? ''}
+          onChange={(e) => navigate(`/c/${e.target.value}`)}
+        >
+          {order.map((id) => (
+            <option key={id} value={id}>
+              {campaigns[id].name}
+            </option>
+          ))}
+        </select>
+        <Link className="sidebar__all" to="/">
+          All campaigns
+        </Link>
       </div>
       <nav className="sidebar__nav" aria-label="Main">
         {links.map((l) => (

@@ -139,6 +139,77 @@ body {
   color: var(--cyan);
 }
 
+.input {
+  width: 100%;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 2px solid var(--border);
+  padding: 4px var(--space);
+}
+
+.input:focus-visible,
+.button:focus-visible,
+.sidebar__all:focus-visible {
+  outline: 2px solid var(--cyan);
+}
+
+.button {
+  display: inline-block;
+  font: inherit;
+  color: var(--amber);
+  background: var(--bg);
+  border: 2px solid var(--amber);
+  padding: 4px calc(var(--space) * 2);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--amber);
+  color: var(--bg);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button--danger {
+  color: #ff7a6b;
+  border-color: #ff7a6b;
+}
+
+.button--danger:hover:not(:disabled) {
+  background: #ff7a6b;
+}
+
+.form-row {
+  display: flex;
+  gap: var(--space);
+}
+
+.picker {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: calc(var(--space) * 4) calc(var(--space) * 2);
+}
+
+.sidebar__all {
+  display: inline-block;
+  margin-top: var(--space);
+  font-size: 18px;
+  color: var(--cyan);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
 @media (max-width: 700px) {
   .shell {
     grid-template-columns: 1fr;
