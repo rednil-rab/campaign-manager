@@ -1,4 +1,4 @@
-import { useCampaign } from '../../app/CampaignContext';
+import { useCampaign } from '../../store/campaignStore';
 import { Panel, Tag } from '../../components/Panel';
 import { questsForNpc, sessionsForNpc } from '../../domain/selectors';
 

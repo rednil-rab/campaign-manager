@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { useCampaign } from '../CampaignContext';
+import { useCampaignName } from '../../store/campaignStore';
 
 const links = [
   { to: '/', label: 'Dashboard', end: true },
@@ -9,13 +9,13 @@ const links = [
 ];
 
 export function Sidebar() {
-  const campaign = useCampaign();
+  const campaignName = useCampaignName();
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">Questkeeper</div>
       <div className="sidebar__campaign">
         <span className="sidebar__label">Campaign</span>
-        {campaign.name}
+        {campaignName}
       </div>
       <nav className="sidebar__nav" aria-label="Main">
         {links.map((l) => (
