@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Panel } from '../../components/Panel';
 import { useCampaignStore } from '../../store/campaignStore';
 
@@ -10,6 +11,8 @@ export function CampaignPickerPage() {
   const createCampaign = useCampaignStore((s) => s.createCampaign);
   const deleteCampaign = useCampaignStore((s) => s.deleteCampaign);
   const [name, setName] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deleting = deletingId ? campaigns[deletingId] : undefined;
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -18,12 +21,6 @@ export function CampaignPickerPage() {
     const id = createCampaign(trimmed);
     setName('');
     navigate(`/c/${id}`);
-  };
-
-  const onDelete = (id: string, campaignName: string) => {
-    if (window.confirm(`Delete "${campaignName}" and all its sessions, quests and NPCs?`)) {
-      deleteCampaign(id);
-    }
   };
 
   return (
@@ -63,13 +60,25 @@ export function CampaignPickerPage() {
               <Link className="button" to={`/c/${id}`}>
                 Open
               </Link>
-              <button className="button button--danger" type="button" onClick={() => onDelete(id, c.name)}>
+              <button className="button button--danger" type="button" onClick={() => setDeletingId(id)}>
                 Delete
               </button>
             </div>
           </Panel>
         );
       })}
+
+      {deleting && deletingId && (
+        <ConfirmDialog
+          title="Delete campaign"
+          message={`Delete "${deleting.name}" and all its sessions, quests and NPCs? This cannot be undone.`}
+          onCancel={() => setDeletingId(null)}
+          onConfirm={() => {
+            deleteCampaign(deletingId);
+            setDeletingId(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -27,5 +27,8 @@ export const questsForNpc = (c: Campaign, npcId: Id): Quest[] =>
 export const activeQuests = (c: Campaign): Quest[] =>
   c.quests.filter((q) => q.status === 'active');
 
+export const dependentQuests = (c: Campaign, questId: Id): Quest[] =>
+  c.quests.filter((q) => q.prerequisiteQuestIds.includes(questId));
+
 export const latestSession = (c: Campaign): Session | undefined =>
   [...c.sessions].sort((a, b) => b.number - a.number)[0];

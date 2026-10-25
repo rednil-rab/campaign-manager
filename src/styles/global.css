@@ -202,6 +202,74 @@ body {
   color: var(--cyan);
 }
 
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--space) * 2);
+  margin-bottom: var(--space);
+}
+
+.button--ghost {
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space) * 1.5);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-dim);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.checks {
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  color: var(--text);
+}
+
+.muted {
+  color: var(--text-dim);
+}
+
+.error {
+  margin: 0;
+  color: #ff7a6b;
+}
+
+.dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 2px solid var(--amber);
+  box-shadow: 6px 6px 0 #000;
+  padding: calc(var(--space) * 2);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+textarea.input {
+  resize: vertical;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;
