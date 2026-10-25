@@ -1,0 +1,16 @@
+:root {
+  --bg: #0e0f17;
+  --bg-raised: #171926;
+  --bg-sidebar: #0a0b11;
+  --border: #2c3046;
+  --text: #e6e3d8;
+  --text-dim: #a09d92;
+  --amber: #f2b441;
+  --cyan: #4fd6e0;
+
+  --font-display: 'Press Start 2P', monospace;
+  --font-body: 'VT323', 'Courier New', monospace;
+
+  --space: 8px;
+  --sidebar-width: 240px;
+}

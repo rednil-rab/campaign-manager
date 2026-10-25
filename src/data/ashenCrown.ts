@@ -1,0 +1,107 @@
+import type { Campaign } from '../domain/types';
+
+export const ashenCrown: Campaign = {
+  id: 'ashen-crown',
+  name: 'The Ashen Crown',
+  setting: 'The Cinderlands',
+  tagline: 'A dead king’s crown smolders, and every faction wants it.',
+  npcs: [
+    {
+      id: 'npc-mirelle',
+      name: 'Mirelle Vask',
+      role: 'Innkeeper & informant',
+      location: 'Emberfall',
+      disposition: 'ally',
+      description: 'Runs the Smoldering Flagon and trades secrets for favors.',
+    },
+    {
+      id: 'npc-halric',
+      name: 'Captain Halric Dorn',
+      role: 'Captain of the Ash Watch',
+      location: 'Emberfall',
+      disposition: 'neutral',
+      description: 'Loyal to the realm, wary of adventurers poking at the crown.',
+    },
+    {
+      id: 'npc-sorrel',
+      name: 'Sorrel the Pale',
+      role: 'Exiled court wizard',
+      location: 'Hollow Spire',
+      disposition: 'unknown',
+      description: 'Claims to know how the king really died.',
+    },
+    {
+      id: 'npc-voss',
+      name: 'Lord Edric Voss',
+      role: 'Pretender to the throne',
+      location: 'Castle Cindermoor',
+      disposition: 'hostile',
+      description: 'Hunting the crown to legitimize his claim.',
+    },
+  ],
+  quests: [
+    {
+      id: 'quest-letter',
+      title: 'The Sealed Letter',
+      status: 'completed',
+      description: 'Deliver a wax-sealed letter from Mirelle to the Ash Watch.',
+      giverNpcId: 'npc-mirelle',
+      prerequisiteQuestIds: [],
+    },
+    {
+      id: 'quest-barrow',
+      title: 'Into the Kingsbarrow',
+      status: 'active',
+      description: 'Search the royal barrow for signs of the missing crown.',
+      giverNpcId: 'npc-halric',
+      prerequisiteQuestIds: ['quest-letter'],
+    },
+    {
+      id: 'quest-sorrel',
+      title: 'Find the Exiled Wizard',
+      status: 'active',
+      description: 'Track down Sorrel the Pale before Voss’s hunters do.',
+      giverNpcId: 'npc-mirelle',
+      prerequisiteQuestIds: ['quest-letter'],
+    },
+    {
+      id: 'quest-crown',
+      title: 'Claim the Ashen Crown',
+      status: 'dormant',
+      description: 'Recover the crown and decide who deserves to wear it.',
+      prerequisiteQuestIds: ['quest-barrow', 'quest-sorrel'],
+    },
+  ],
+  sessions: [
+    {
+      id: 'session-1',
+      number: 1,
+      title: 'Smoke Over Emberfall',
+      playedOn: '2026-09-06',
+      summary:
+        'The party meets Mirelle at the Smoldering Flagon and takes a sealed letter to Captain Dorn.',
+      questIds: ['quest-letter'],
+      npcIds: ['npc-mirelle', 'npc-halric'],
+    },
+    {
+      id: 'session-2',
+      number: 2,
+      title: 'The Barrow Opens',
+      playedOn: '2026-09-20',
+      summary:
+        'Halric sends the party to the Kingsbarrow. Mirelle hints that Sorrel knows more.',
+      questIds: ['quest-barrow', 'quest-sorrel'],
+      npcIds: ['npc-halric', 'npc-mirelle', 'npc-sorrel'],
+    },
+    {
+      id: 'session-3',
+      number: 3,
+      title: 'Voss Rides North',
+      playedOn: '2026-10-11',
+      summary:
+        'Voss’s riders ambush the party on the road. The barrow is still unexplored.',
+      questIds: ['quest-barrow', 'quest-sorrel'],
+      npcIds: ['npc-voss', 'npc-sorrel'],
+    },
+  ],
+};
