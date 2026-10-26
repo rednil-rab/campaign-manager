@@ -18,8 +18,8 @@ export function CharactersPage() {
 
   const close = () => setEditing(null);
 
-  const save = (character: PlayerCharacter) => {
-    upsertCharacter(character);
+  const save = async (character: PlayerCharacter) => {
+    await upsertCharacter(character);
     close();
   };
 
@@ -92,8 +92,8 @@ export function CharactersPage() {
           title="Delete character"
           message={confirmMessage(deleting)}
           onCancel={() => setDeleting(null)}
-          onConfirm={() => {
-            deleteCharacter(deleting.id);
+          onConfirm={async () => {
+            await deleteCharacter(deleting.id);
             setDeleting(null);
           }}
         />

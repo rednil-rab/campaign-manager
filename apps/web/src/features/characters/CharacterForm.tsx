@@ -10,7 +10,7 @@ import { fromItemDrafts, toItemDrafts } from './inventoryDraft';
 interface CharacterFormProps {
   campaign: Campaign;
   initial?: PlayerCharacter;
-  onSave: (character: PlayerCharacter) => void;
+  onSave: (character: PlayerCharacter) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -23,14 +23,17 @@ export function CharacterForm({ campaign, initial, onSave, onCancel }: Character
   const [stats, setStats] = useState(() => toDraft(initial?.stats));
   const [items, setItems] = useState(() => toItemDrafts(initial?.inventory));
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || busy) return;
+    setError('');
+    setBusy(true);
     try {
       const r = fromPick(race);
       const k = fromPick(klass);
-      onSave({
+      await onSave({
         id: initial?.id ?? crypto.randomUUID(),
         name: name.trim(),
         player: player.trim(),
@@ -45,6 +48,8 @@ export function CharacterForm({ campaign, initial, onSave, onCancel }: Character
     } catch (err) {
       if (err instanceof DomainError) setError(err.message);
       else throw err;
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -72,7 +77,7 @@ export function CharacterForm({ campaign, initial, onSave, onCancel }: Character
         </p>
       )}
       <div className="form-row">
-        <button className="button" type="submit" disabled={!name.trim()}>
+        <button className="button" type="submit" disabled={!name.trim() || busy}>
           Save character
         </button>
         <button className="button button--ghost" type="button" onClick={onCancel}>

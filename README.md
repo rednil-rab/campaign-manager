@@ -28,14 +28,17 @@ Open the local URL printed by Vite to use the app.
 
 ### API server (work in progress)
 
-The web app still stores data in local storage. An Express + MongoDB API with accounts is being added in `apps/server` and will take over storage entity by entity. So far it has email/password registration and login (httpOnly cookie session).
+An Express + MongoDB API with accounts (`apps/server`) is taking over storage entity by entity. On the `backend` branch the web app requires sign-in and **characters** are stored on the server (one MongoDB document per campaign, optimistic versioning, domain rules reused from `@questkeeper/domain`). Quests, NPCs, sessions and game-system edits are not connected yet and show an error when saved.
+
+Endpoints (all under `/api`, campaigns require the session cookie): `POST /auth/register|login|logout`, `GET /auth/me`, `GET|POST /campaigns`, `PATCH|DELETE /campaigns/:id`, `PUT|DELETE /campaigns/:id/characters/:characterId`.
 
 ```sh
 cp apps/server/.env.example apps/server/.env   # then set JWT_SECRET (32+ characters)
-npm run dev -w @questkeeper/server              # needs MongoDB at MONGODB_URI
+npm run dev -w @questkeeper/server              # API on :3000, needs MongoDB at MONGODB_URI
+npm run dev -w @questkeeper/web                 # Vite proxies /api to :3000
 ```
 
-The server tests use an in-memory user store, so `npm test` does not need MongoDB.
+The server tests use in-memory stores, so `npm test` does not need MongoDB.
 
 ## Development commands
 

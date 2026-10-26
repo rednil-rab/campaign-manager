@@ -1,102 +1,131 @@
+import {
+  DomainError,
+  addCampaign,
+  removeCampaign,
+  setActiveCampaign as selectCampaign,
+  type Campaign,
+  type Id,
+  type Library,
+  type PlayerCharacter,
+} from '@questkeeper/domain';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import { ashenCrown, type Campaign, type Id, type Library, type Npc, type PlayerCharacter, type Quest, type RuleOption, type Session, type StatDefinition } from '@questkeeper/domain';
-import * as actions from '@questkeeper/domain';
-import * as lib from '@questkeeper/domain';
+import { api } from '../api/client';
+
+type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface CampaignState extends Library {
-  createCampaign: (name: string) => Id;
-  renameCampaign: (id: Id, name: string) => void;
-  deleteCampaign: (id: Id) => void;
+  status: LoadStatus;
+  load: () => Promise<void>;
+  /** Forgets everything, e.g. on sign-out. */
+  reset: () => void;
+
+  createCampaign: (name: string) => Promise<Id>;
+  createSampleCampaign: () => Promise<Id>;
+  renameCampaign: (id: Id, name: string) => Promise<void>;
+  deleteCampaign: (id: Id) => Promise<void>;
   setActiveCampaign: (id: Id) => void;
 
-  // The actions below apply to the active campaign.
-  upsertNpc: (npc: Npc) => void;
-  upsertStatDefinition: (def: StatDefinition) => void;
-  deleteStatDefinition: (id: Id) => void;
-  upsertRace: (race: RuleOption) => void;
-  deleteRace: (id: Id) => void;
-  upsertClass: (option: RuleOption) => void;
-  deleteClass: (id: Id) => void;
-  upsertCharacter: (character: PlayerCharacter) => void;
-  upsertQuest: (quest: Quest) => void;
-  upsertSession: (session: Session) => void;
-  deleteNpc: (id: Id) => void;
-  deleteCharacter: (id: Id) => void;
-  deleteQuest: (id: Id) => void;
-  deleteSession: (id: Id) => void;
+  // Characters are stored on the server.
+  upsertCharacter: (character: PlayerCharacter) => Promise<void>;
+  deleteCharacter: (id: Id) => Promise<void>;
 
-  resetToSample: () => void;
+  // Everything below is not connected to the server yet and refuses to save.
+  upsertNpc: (...args: unknown[]) => never;
+  upsertStatDefinition: (...args: unknown[]) => never;
+  deleteStatDefinition: (...args: unknown[]) => never;
+  upsertRace: (...args: unknown[]) => never;
+  deleteRace: (...args: unknown[]) => never;
+  upsertClass: (...args: unknown[]) => never;
+  deleteClass: (...args: unknown[]) => never;
+  upsertQuest: (...args: unknown[]) => never;
+  upsertSession: (...args: unknown[]) => never;
+  deleteNpc: (...args: unknown[]) => never;
+  deleteQuest: (...args: unknown[]) => never;
+  deleteSession: (...args: unknown[]) => never;
 }
 
-const newId = (): Id => crypto.randomUUID();
+const empty: Library = { campaigns: {}, order: [], activeCampaignId: null };
 
-const selectActive = (s: Library): Campaign | undefined =>
-  s.activeCampaignId ? s.campaigns[s.activeCampaignId] : undefined;
+const notYet = (what: string) => (): never => {
+  throw new DomainError(`Saving ${what} is not connected to the server yet.`);
+};
 
-// Actions throw DomainError on invalid input; callers (forms) should catch it.
-export const useCampaignStore = create<CampaignState>()(
-  persist(
-    (set) => {
-      const mutateActive = (fn: (c: Campaign) => Campaign) =>
+const withCampaign = (lib: Library, campaign: Campaign): Library =>
+  lib.campaigns[campaign.id]
+    ? { ...lib, campaigns: { ...lib.campaigns, [campaign.id]: campaign } }
+    : addCampaign(lib, campaign);
+
+export const useCampaignStore = create<CampaignState>()((set, get) => {
+  const activeId = (): Id => {
+    const id = get().activeCampaignId;
+    if (!id || !get().campaigns[id]) throw new Error('No active campaign');
+    return id;
+  };
+
+  /** Applies the campaign returned by the server, which is the source of truth. */
+  const apply = (campaign: Campaign) => set((s) => withCampaign(s, campaign));
+
+  return {
+    ...empty,
+    status: 'idle',
+
+    load: async () => {
+      set({ status: 'loading' });
+      try {
+        const campaigns = await api<Campaign[]>('GET', '/campaigns');
         set((s) => {
-          const id = s.activeCampaignId;
-          if (!id || !s.campaigns[id]) throw new Error('No active campaign');
-          return { campaigns: { ...s.campaigns, [id]: fn(s.campaigns[id]) } };
+          const byId = Object.fromEntries(campaigns.map((c) => [c.id, c]));
+          const order = campaigns.map((c) => c.id);
+          const keep = s.activeCampaignId && byId[s.activeCampaignId] ? s.activeCampaignId : null;
+          return { campaigns: byId, order, activeCampaignId: keep ?? order[0] ?? null, status: 'ready' };
         });
-
-      return {
-        ...lib.libraryOf(ashenCrown),
-
-        createCampaign: (name) => {
-          const id = newId();
-          set((s) => lib.addCampaign(s, lib.emptyCampaign(id, name)));
-          return id;
-        },
-        renameCampaign: (id, name) => set((s) => lib.renameCampaign(s, id, name)),
-        deleteCampaign: (id) => set((s) => lib.removeCampaign(s, id)),
-        setActiveCampaign: (id) => set((s) => lib.setActiveCampaign(s, id)),
-
-        upsertNpc: (npc) => mutateActive((c) => actions.upsertNpc(c, npc)),
-        upsertStatDefinition: (d) => mutateActive((c) => actions.upsertStatDefinition(c, d)),
-        deleteStatDefinition: (id) => mutateActive((c) => actions.deleteStatDefinition(c, id)),
-        upsertRace: (r) => mutateActive((c) => actions.upsertRace(c, r)),
-        deleteRace: (id) => mutateActive((c) => actions.deleteRace(c, id)),
-        upsertClass: (o) => mutateActive((c) => actions.upsertClass(c, o)),
-        deleteClass: (id) => mutateActive((c) => actions.deleteClass(c, id)),
-        upsertCharacter: (p) => mutateActive((c) => actions.upsertCharacter(c, p)),
-        upsertQuest: (q) => mutateActive((c) => actions.upsertQuest(c, q)),
-        upsertSession: (x) => mutateActive((c) => actions.upsertSession(c, x)),
-        deleteNpc: (id) => mutateActive((c) => actions.deleteNpc(c, id)),
-        deleteCharacter: (id) => mutateActive((c) => actions.deleteCharacter(c, id)),
-        deleteQuest: (id) => mutateActive((c) => actions.deleteQuest(c, id)),
-        deleteSession: (id) => mutateActive((c) => actions.deleteSession(c, id)),
-
-        resetToSample: () => set(lib.libraryOf(ashenCrown)),
-      };
+      } catch (err) {
+        set({ status: 'error' });
+        throw err;
+      }
     },
-    {
-      // Key keeps its original name so existing v1 data is found and migrated.
-      name: 'questkeeper:v1',
-      version: 2,
-      storage: createJSONStorage(() => localStorage),
-      partialize: (s): Library => ({
-        campaigns: s.campaigns,
-        order: s.order,
-        activeCampaignId: s.activeCampaignId,
-      }),
-      // Handles v1 ({ campaign }) and v2 data; unusable data keeps the seeded library.
-      merge: (persisted, current) => {
-        const parsed = lib.parseStoredLibrary(persisted);
-        return parsed ? { ...current, ...parsed } : current;
-      },
+    reset: () => set({ ...empty, status: 'idle' }),
+
+    createCampaign: async (name) => {
+      const campaign = await api<Campaign>('POST', '/campaigns', { name });
+      apply(campaign);
+      return campaign.id;
     },
-  ),
-);
+    createSampleCampaign: async () => {
+      const campaign = await api<Campaign>('POST', '/campaigns', { sample: true });
+      apply(campaign);
+      return campaign.id;
+    },
+    renameCampaign: async (id, name) => apply(await api<Campaign>('PATCH', `/campaigns/${id}`, { name })),
+    deleteCampaign: async (id) => {
+      await api('DELETE', `/campaigns/${id}`);
+      set((s) => removeCampaign(s, id));
+    },
+    setActiveCampaign: (id) => set((s) => selectCampaign(s, id)),
+
+    upsertCharacter: async (character) =>
+      apply(await api<Campaign>('PUT', `/campaigns/${activeId()}/characters/${character.id}`, character)),
+    deleteCharacter: async (id) =>
+      apply(await api<Campaign>('DELETE', `/campaigns/${activeId()}/characters/${id}`)),
+
+    upsertNpc: notYet('NPCs'),
+    deleteNpc: notYet('NPCs'),
+    upsertQuest: notYet('quests'),
+    deleteQuest: notYet('quests'),
+    upsertSession: notYet('sessions'),
+    deleteSession: notYet('sessions'),
+    upsertStatDefinition: notYet('stats'),
+    deleteStatDefinition: notYet('stats'),
+    upsertRace: notYet('races'),
+    deleteRace: notYet('races'),
+    upsertClass: notYet('classes'),
+    deleteClass: notYet('classes'),
+  };
+});
 
 /** The active campaign. Routes must ensure one exists before rendering pages. */
 export const useCampaign = (): Campaign => {
-  const campaign = useCampaignStore(selectActive);
+  const campaign = useCampaignStore((s) => (s.activeCampaignId ? s.campaigns[s.activeCampaignId] : undefined));
   if (!campaign) throw new Error('No active campaign');
   return campaign;
 };
