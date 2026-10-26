@@ -4,7 +4,6 @@ import {
   addCampaign,
   emptyCampaign,
   libraryOf,
-  parseStoredLibrary,
   removeCampaign,
   renameCampaign,
   setActiveCampaign,
@@ -44,29 +43,5 @@ describe('library', () => {
   it('ignores unknown ids', () => {
     expect(setActiveCampaign(lib, 'nope')).toBe(lib);
     expect(removeCampaign(lib, 'nope')).toBe(lib);
-  });
-});
-
-describe('parseStoredLibrary', () => {
-  it('migrates v1 single-campaign data', () => {
-    const parsed = parseStoredLibrary({ campaign: ashenCrown });
-    expect(parsed?.order).toEqual(['ashen-crown']);
-    expect(parsed?.activeCampaignId).toBe('ashen-crown');
-  });
-
-  it('repairs a v2 library with a bad active id and missing order entries', () => {
-    const parsed = parseStoredLibrary({
-      campaigns: { 'ashen-crown': ashenCrown, junk: { id: 'junk' } },
-      order: ['ghost'],
-      activeCampaignId: 'ghost',
-    });
-    expect(parsed?.order).toEqual(['ashen-crown']);
-    expect(parsed?.activeCampaignId).toBe('ashen-crown');
-    expect(parsed?.campaigns.junk).toBeUndefined();
-  });
-
-  it('rejects unusable data', () => {
-    expect(parseStoredLibrary(null)).toBeNull();
-    expect(parseStoredLibrary({ foo: 1 })).toBeNull();
   });
 });

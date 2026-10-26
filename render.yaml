@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: questkeeper
+    runtime: node
+    plan: free
+    # Render sets NODE_ENV=production at build time, so dev dependencies (TypeScript, Vite) must be requested.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_DB
+        value: questkeeper
+      # Paste the Atlas connection string in the Render dashboard; it is a secret and stays out of git.
+      - key: MONGODB_URI
+        sync: false

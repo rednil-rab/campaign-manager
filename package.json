@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm run dev -w @questkeeper/web",
     "build": "npm run build -w @questkeeper/web",
+    "start": "npm run start -w @questkeeper/server",
     "preview": "npm run preview -w @questkeeper/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",

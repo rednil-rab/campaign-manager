@@ -13,48 +13,52 @@ Questkeeper is a browser-based campaign manager for tabletop role-playing games.
 - See a campaign dashboard with active quests and the latest session.
 - Start with the sample **The Ashen Crown** campaign or create a campaign from scratch.
 
-Campaign data is saved in the browser's local storage. There is no account or server-side storage, so data is local to the browser and profile where it was created.
+Your campaigns are stored on the server in MongoDB and belong to your account, so they follow you across browsers and devices.
 
 ## Getting started
 
-You will need Node.js and npm.
+You will need Node.js 22 and npm, plus a MongoDB instance (a local install or a free MongoDB Atlas cluster).
 
 ```sh
 npm install
-npm run dev
+cp apps/server/.env.example apps/server/.env   # set JWT_SECRET (32+ characters) and MONGODB_URI
+npm run dev -w @questkeeper/server              # API on http://localhost:3000
+npm run dev -w @questkeeper/web                 # Vite dev server; proxies /api to :3000
 ```
 
-Open the local URL printed by Vite to use the app.
+Open the URL Vite prints, create an account, and add the sample campaign or start a new one.
 
-### API server (work in progress)
-
-An Express + MongoDB API with accounts (`apps/server`) now stores everything. On the `backend` branch the web app requires sign-in; each campaign is one MongoDB document with optimistic versioning, and the domain rules and delete cascades from `@questkeeper/domain` run on the server.
-
-Endpoints (all under `/api`, campaigns require the session cookie): `POST /auth/register|login|logout`, `GET /auth/me`, `GET|POST /campaigns`, `PATCH|DELETE /campaigns/:id`, and `PUT|DELETE /campaigns/:id/<kind>/:entityId` where `<kind>` is `characters`, `npcs`, `quests`, `sessions`, `stats`, `races` or `classes`. Each returns the updated campaign.
+To run it the way production does (one process serving both the API and the built app):
 
 ```sh
-cp apps/server/.env.example apps/server/.env   # then set JWT_SECRET (32+ characters)
-npm run dev -w @questkeeper/server              # API on :3000, needs MongoDB at MONGODB_URI
-npm run dev -w @questkeeper/web                 # Vite proxies /api to :3000
+npm run build
+npm start      # http://localhost:3000, reads apps/server/.env
 ```
 
-The server tests use in-memory stores, so `npm test` does not need MongoDB.
+## API
+
+Everything is under `/api`. Accounts use an httpOnly session cookie.
+
+- `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
+- `GET|POST /campaigns`, `PATCH|DELETE /campaigns/:id`
+- `PUT|DELETE /campaigns/:id/<kind>/:entityId`, where `<kind>` is `characters`, `npcs`, `quests`, `sessions`, `stats`, `races` or `classes`. Each returns the updated campaign.
+
+Each campaign is one MongoDB document with a version number. The server loads it, applies a domain function from `@questkeeper/domain`, and saves it only if nobody changed it in between (it retries, then answers 409). Input is validated and copied field by field, and every query is scoped to the signed-in owner.
 
 ## Development commands
 
 ```sh
-npm run lint   # ESLint (TypeScript, React hooks, accessibility)
-npm test       # Run the test suite
-npm run build  # Type-check and build for production
-npm run preview
+npm run lint        # ESLint (TypeScript, React hooks, accessibility)
+npm run typecheck   # Type-check every workspace
+npm test            # Run the test suite (no database needed)
+npm run build       # Type-check and build the web app
 ```
 
 ## Tech stack
 
-- React 18 and TypeScript
-- Vite
-- React Router
-- Zustand with browser local-storage persistence
+- React 18, TypeScript, Vite, React Router, Zustand
+- Express 5 and MongoDB
+- Shared domain package (`@questkeeper/domain`) used by both the web app and the server
 
 ## Project structure
 
@@ -63,39 +67,48 @@ packages/
   domain/       Pure TypeScript shared by web and server: types, actions, selectors,
                 integrity checks, sample campaign (The Ashen Crown), tests
 apps/
+  server/src/
+    auth/         Registration, login, cookie sessions
+    campaigns/    Repositories (Mongo and in-memory), input parsing, routes, optimistic-lock service
+    users/        User repositories
   web/src/
-    store/        Zustand store: thin wrapper around the domain actions, with persistence
-    features/     One folder per screen: campaigns, dashboard, sessions, quests, npcs, characters, system
+    api/          Fetch client
+    store/        Zustand stores: campaigns (API-backed) and auth
+    features/     One folder per screen: auth, campaigns, dashboard, sessions, quests, npcs, characters, system
     components/   Shared UI: Panel, Tag, Dialog, ConfirmDialog
-    app/          Router and layout (sidebar, campaign route)
+    app/          Router and layout (sidebar, auth guard, campaign route)
     styles/       Design tokens and global CSS
 ```
 
-This is an npm workspaces monorepo. A backend (`apps/server`) is being added; see the roadmap.
+This is an npm workspaces monorepo.
 
 ## Architecture notes
 
-- **Domain logic is separate from React.** Everything in `packages/domain` is plain functions that take a campaign and return a new one, so it can be tested without rendering anything. The Zustand store only calls these functions.
-- **Entities reference each other by ID.** Sessions point to quests, NPCs and attending characters, and quests point to a giver NPC and prerequisite quests. Stat values on characters and NPCs are keyed by the ID of a per-campaign stat definition, so renaming a stat keeps its values. Races and classes work the same way; deleting one in use turns it into custom text on the affected characters. Related data is looked up with selectors instead of being copied.
-- **Consistency is enforced in one place.** Deleting an NPC, quest, character or stat also removes every reference to it. Editing a quest rejects unknown references, self-requirements and prerequisite cycles with a `DomainError` that the forms show inline.
-- **The campaign is part of the URL.** Pages live under `/c/:campaignId/...`, so links and refreshes stay correct and the campaign switcher is just navigation.
-- **Persistence is defensive.** Data is saved to local storage under a versioned schema. On load it is migrated, dangling references are dropped, and corrupt data falls back to the sample campaign.
+- **Domain logic is separate from React and from Express.** Everything in `packages/domain` is plain functions that take a campaign and return a new one, so it is tested without rendering or a database. The server and the web app share it.
+- **The server is the source of truth.** The web store sends one change and replaces its copy of the campaign with the server's response, so the screen never drifts from what was saved.
+- **Entities reference each other by ID.** Sessions point to quests, NPCs and attending characters, and quests point to a giver NPC and prerequisite quests. Stat values are keyed by the ID of a per-campaign stat definition, so renaming a stat keeps its values. Deleting a race or class in use turns it into custom text on the affected characters. Related data is looked up with selectors instead of being copied.
+- **Consistency is enforced in one place.** Deleting an NPC, quest, character or stat also removes every reference to it. Editing a quest rejects unknown references, self-requirements and prerequisite cycles with a `DomainError`, which the forms show inline.
+- **The campaign is part of the URL.** Pages live under `/c/:campaignId/...`, so links and refreshes stay correct.
 - **Components subscribe to narrow slices of the store** to avoid unnecessary re-renders.
 
 ## Deployment
 
-Every push to `main` runs tests and deploys to GitHub Pages via
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Pull requests run
-[`ci.yml`](.github/workflows/ci.yml) (tests + build).
+The app is deployed to [Render](https://render.com) as a single web service that serves the API and the built web app from the same origin, so no CORS is needed. It is described in [`render.yaml`](render.yaml). Pull requests and pushes to `main` run [`ci.yml`](.github/workflows/ci.yml) (lint, type-check, tests, build).
 
-Live demo: https://rednil-rab.github.io/campaign-manager/
+One-time setup:
 
-One-time setup: in the repository, go to **Settings → Pages** and set **Source** to **GitHub Actions**.
+1. Create a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster and a database user. Under **Network Access**, allow connections from Render (for a free portfolio project, `0.0.0.0/0`).
+2. In Render choose **New → Blueprint** and select this repository. It reads `render.yaml`.
+3. When prompted, set `MONGODB_URI` to the Atlas connection string. `JWT_SECRET` is generated for you.
+4. Render deploys on every push to `main`.
 
 Notes:
-- The build passes `--base=/<repo-name>/`, and the router reads its `basename` from Vite's `BASE_URL`.
-- GitHub Pages has no SPA fallback, so the workflow copies `index.html` to `404.html` to make deep links work.
+- On the free plan the service sleeps when idle, so the first request after a pause is slow.
+- The server runs the TypeScript sources with `tsx`; there is no separate server build.
+- Changing `JWT_SECRET` signs everyone out.
 
 ## Roadmap
 
 - Premade NPC templates that can be copied into any campaign.
+- Rate limiting on the sign-in endpoints.
+- Rename campaigns from the UI (the API already supports it).

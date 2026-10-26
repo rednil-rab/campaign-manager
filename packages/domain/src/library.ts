@@ -1,4 +1,3 @@
-import { isCampaign, sanitizeCampaign } from './integrity';
 import type { Campaign, Id } from './types';
 
 export interface Library {
@@ -55,34 +54,4 @@ export function removeCampaign(lib: Library, id: Id): Library {
 
 export function setActiveCampaign(lib: Library, id: Id): Library {
   return lib.campaigns[id] ? { ...lib, activeCampaignId: id } : lib;
-}
-
-/**
- * Turns persisted data (v1: a single `campaign`, v2: a library) into a valid
- * Library, or null if it is unusable.
- */
-export function parseStoredLibrary(persisted: unknown): Library | null {
-  if (!persisted || typeof persisted !== 'object') return null;
-  const p = persisted as Record<string, unknown>;
-
-  if (isCampaign(p.campaign)) return libraryOf(sanitizeCampaign(p.campaign));
-
-  if (p.campaigns && typeof p.campaigns === 'object' && Array.isArray(p.order)) {
-    const raw = p.campaigns as Record<string, unknown>;
-    const campaigns: Record<Id, Campaign> = {};
-    for (const [id, value] of Object.entries(raw)) {
-      if (isCampaign(value) && value.id === id) campaigns[id] = sanitizeCampaign(value);
-    }
-    const order = (p.order as unknown[]).filter(
-      (id): id is Id => typeof id === 'string' && id in campaigns,
-    );
-    for (const id of Object.keys(campaigns)) if (!order.includes(id)) order.push(id);
-    const active =
-      typeof p.activeCampaignId === 'string' && p.activeCampaignId in campaigns
-        ? p.activeCampaignId
-        : (order[0] ?? null);
-    return { campaigns, order, activeCampaignId: active };
-  }
-
-  return null;
 }
