@@ -9,7 +9,7 @@ const dispositions: NpcDisposition[] = ['ally', 'neutral', 'hostile', 'unknown']
 interface NpcFormProps {
   campaign: Campaign;
   initial?: Npc;
-  onSave: (npc: Npc) => void;
+  onSave: (npc: Npc) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -21,13 +21,16 @@ export function NpcForm({ campaign, initial, onSave, onCancel }: NpcFormProps) {
   const [description, setDescription] = useState(initial?.description ?? '');
   const [stats, setStats] = useState(() => toDraft(initial?.stats));
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || busy) return;
+    setError('');
+    setBusy(true);
     try {
       const values = fromDraft(campaign.statDefinitions, stats);
-      onSave({
+      await onSave({
         id: initial?.id ?? crypto.randomUUID(),
         name: name.trim(),
         role: role.trim(),
@@ -39,6 +42,8 @@ export function NpcForm({ campaign, initial, onSave, onCancel }: NpcFormProps) {
     } catch (err) {
       if (err instanceof DomainError) setError(err.message);
       else throw err;
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -81,7 +86,7 @@ export function NpcForm({ campaign, initial, onSave, onCancel }: NpcFormProps) {
         </p>
       )}
       <div className="form-row">
-        <button className="button" type="submit" disabled={!name.trim()}>
+        <button className="button" type="submit" disabled={!name.trim() || busy}>
           Save NPC
         </button>
         <button className="button button--ghost" type="button" onClick={onCancel}>

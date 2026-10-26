@@ -18,8 +18,8 @@ export function QuestsPage() {
 
   const close = () => setEditing(null);
 
-  const save = (quest: Quest) => {
-    upsertQuest(quest);
+  const save = async (quest: Quest) => {
+    await upsertQuest(quest);
     close();
   };
 
@@ -83,8 +83,8 @@ export function QuestsPage() {
           title="Delete quest"
           message={confirmMessage(deleting)}
           onCancel={() => setDeleting(null)}
-          onConfirm={() => {
-            deleteQuest(deleting.id);
+          onConfirm={async () => {
+            await deleteQuest(deleting.id);
             setDeleting(null);
           }}
         />

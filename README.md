@@ -28,9 +28,9 @@ Open the local URL printed by Vite to use the app.
 
 ### API server (work in progress)
 
-An Express + MongoDB API with accounts (`apps/server`) is taking over storage entity by entity. On the `backend` branch the web app requires sign-in and **characters** are stored on the server (one MongoDB document per campaign, optimistic versioning, domain rules reused from `@questkeeper/domain`). Quests, NPCs, sessions and game-system edits are not connected yet and show an error when saved.
+An Express + MongoDB API with accounts (`apps/server`) now stores everything. On the `backend` branch the web app requires sign-in; each campaign is one MongoDB document with optimistic versioning, and the domain rules and delete cascades from `@questkeeper/domain` run on the server.
 
-Endpoints (all under `/api`, campaigns require the session cookie): `POST /auth/register|login|logout`, `GET /auth/me`, `GET|POST /campaigns`, `PATCH|DELETE /campaigns/:id`, `PUT|DELETE /campaigns/:id/characters/:characterId`.
+Endpoints (all under `/api`, campaigns require the session cookie): `POST /auth/register|login|logout`, `GET /auth/me`, `GET|POST /campaigns`, `PATCH|DELETE /campaigns/:id`, and `PUT|DELETE /campaigns/:id/<kind>/:entityId` where `<kind>` is `characters`, `npcs`, `quests`, `sessions`, `stats`, `races` or `classes`. Each returns the updated campaign.
 
 ```sh
 cp apps/server/.env.example apps/server/.env   # then set JWT_SECRET (32+ characters)

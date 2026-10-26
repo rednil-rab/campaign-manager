@@ -1,4 +1,15 @@
-import type { Campaign, InventoryItem, PlayerCharacter } from '@questkeeper/domain';
+import type {
+  Campaign,
+  InventoryItem,
+  Npc,
+  NpcDisposition,
+  PlayerCharacter,
+  Quest,
+  QuestStatus,
+  RuleOption,
+  Session,
+  Stats,
+} from '@questkeeper/domain';
 import { HttpError } from '../errors';
 
 const bad = (message: string): never => {
@@ -33,19 +44,103 @@ function parseItem(raw: unknown): InventoryItem {
   };
 }
 
+const MAX_STATS = 100;
+const MAX_REFS = 500;
+
+function parseStats(raw: unknown): Stats {
+  const value = raw ?? {};
+  if (!isRecord(value)) return bad('stats must be an object');
+  const entries = Object.entries(value);
+  if (entries.length > MAX_STATS) return bad(`stats can have at most ${MAX_STATS} entries`);
+  const stats: Stats = {};
+  for (const [id, v] of entries) {
+    if (typeof v !== 'number') bad(`Stat ${id} must be a number`);
+    stats[id] = v as number;
+  }
+  return stats;
+}
+
+function parseIdList(raw: unknown, field: string): string[] {
+  const value = raw ?? [];
+  if (!Array.isArray(value) || value.length > MAX_REFS) return bad(`${field} must be a list of at most ${MAX_REFS} ids`);
+  return value.map((id) => text(id, field, 100, { required: true }));
+}
+
+function oneOf<T extends string>(v: unknown, field: string, allowed: readonly T[]): T {
+  if (typeof v !== 'string' || !(allowed as readonly string[]).includes(v)) {
+    return bad(`${field} must be one of: ${allowed.join(', ')}`);
+  }
+  return v as T;
+}
+
+const QUEST_STATUSES: readonly QuestStatus[] = ['active', 'dormant', 'completed', 'failed'];
+const DISPOSITIONS: readonly NpcDisposition[] = ['ally', 'neutral', 'hostile', 'unknown'];
+
 /**
- * Validates the shape of untrusted input and copies only known fields.
- * Domain rules (unknown stats, ranges, unknown race ids) are enforced by `upsertCharacter`.
+ * Each parser validates the shape of untrusted input and copies only known fields.
+ * Domain rules (unknown references, ranges, cycles) are enforced by the domain actions.
  */
+export function parseQuest(body: unknown): Quest {
+  if (!isRecord(body)) return bad('Quest must be an object');
+  return {
+    id: text(body.id, 'id', 100, { required: true }),
+    title: text(body.title, 'title', 120, { required: true }),
+    status: oneOf(body.status, 'status', QUEST_STATUSES),
+    description: text(body.description ?? '', 'description', 5000),
+    giverNpcId: optionalId(body.giverNpcId, 'giverNpcId'),
+    prerequisiteQuestIds: parseIdList(body.prerequisiteQuestIds, 'prerequisiteQuestIds'),
+  };
+}
+
+export function parseNpc(body: unknown): Npc {
+  if (!isRecord(body)) return bad('NPC must be an object');
+  const stats = body.stats === undefined || body.stats === null ? undefined : parseStats(body.stats);
+  return {
+    id: text(body.id, 'id', 100, { required: true }),
+    name: text(body.name, 'name', 80, { required: true }),
+    role: text(body.role ?? '', 'role', 80),
+    location: text(body.location ?? '', 'location', 80),
+    disposition: oneOf(body.disposition, 'disposition', DISPOSITIONS),
+    description: text(body.description ?? '', 'description', 5000),
+    ...(stats ? { stats } : {}),
+  };
+}
+
+export function parseSession(body: unknown): Session {
+  if (!isRecord(body)) return bad('Session must be an object');
+  const playedOn = text(body.playedOn, 'playedOn', 10, { required: true });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(playedOn) || Number.isNaN(Date.parse(playedOn))) {
+    return bad('playedOn must be a date (YYYY-MM-DD)');
+  }
+  const number = body.number;
+  if (typeof number !== 'number' || !Number.isInteger(number) || number < 1 || number > 100000) {
+    return bad('number must be a positive whole number');
+  }
+  return {
+    id: text(body.id, 'id', 100, { required: true }),
+    number,
+    title: text(body.title, 'title', 120, { required: true }),
+    playedOn,
+    summary: text(body.summary ?? '', 'summary', 20000),
+    questIds: parseIdList(body.questIds, 'questIds'),
+    npcIds: parseIdList(body.npcIds, 'npcIds'),
+    characterIds: parseIdList(body.characterIds, 'characterIds'),
+  };
+}
+
+/** Used for stat definitions, races and classes. */
+export function parseRuleOption(body: unknown): RuleOption {
+  if (!isRecord(body)) return bad('Value must be an object');
+  return {
+    id: text(body.id, 'id', 100, { required: true }),
+    name: text(body.name, 'name', 40, { required: true }),
+  };
+}
+
 export function parseCharacter(body: unknown): PlayerCharacter {
   if (!isRecord(body)) return bad('Character must be an object');
 
-  const stats: Record<string, number> = {};
-  if (!isRecord(body.stats ?? {})) bad('stats must be an object');
-  for (const [id, value] of Object.entries((body.stats ?? {}) as Record<string, unknown>)) {
-    if (typeof value !== 'number') bad(`Stat ${id} must be a number`);
-    stats[id] = value as number;
-  }
+  const stats = parseStats(body.stats);
 
   const rawItems = body.inventory ?? [];
   if (!Array.isArray(rawItems) || rawItems.length > MAX_ITEMS) return bad(`inventory must be a list of at most ${MAX_ITEMS} items`);

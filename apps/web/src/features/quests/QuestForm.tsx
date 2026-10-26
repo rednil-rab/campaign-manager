@@ -10,8 +10,8 @@ const NEW_NPC = '__new__';
 interface QuestFormProps {
   campaign: Campaign;
   initial?: Quest;
-  onSave: (quest: Quest) => void;
-  onCreateNpc: (npc: Npc) => void;
+  onSave: (quest: Quest) => void | Promise<void>;
+  onCreateNpc: (npc: Npc) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -23,6 +23,7 @@ export function QuestForm({ campaign, initial, onSave, onCreateNpc, onCancel }: 
   const [prereqs, setPrereqs] = useState<Id[]>(initial?.prerequisiteQuestIds ?? []);
   const [creatingNpc, setCreatingNpc] = useState(false);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const otherQuests = campaign.quests.filter((q) => q.id !== initial?.id);
 
@@ -34,17 +35,19 @@ export function QuestForm({ campaign, initial, onSave, onCreateNpc, onCancel }: 
     else setGiverNpcId(value);
   };
 
-  const saveNewNpc = (npc: Npc) => {
-    onCreateNpc(npc);
+  const saveNewNpc = async (npc: Npc) => {
+    await onCreateNpc(npc);
     setGiverNpcId(npc.id);
     setCreatingNpc(false);
   };
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || busy) return;
+    setError('');
+    setBusy(true);
     try {
-      onSave({
+      await onSave({
         id: initial?.id ?? crypto.randomUUID(),
         title: title.trim(),
         status,
@@ -55,6 +58,8 @@ export function QuestForm({ campaign, initial, onSave, onCreateNpc, onCancel }: 
     } catch (err) {
       if (err instanceof DomainError) setError(err.message);
       else throw err;
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -107,7 +112,7 @@ export function QuestForm({ campaign, initial, onSave, onCreateNpc, onCancel }: 
           </p>
         )}
         <div className="form-row">
-          <button className="button" type="submit" disabled={!title.trim()}>
+          <button className="button" type="submit" disabled={!title.trim() || busy}>
             Save quest
           </button>
           <button className="button button--ghost" type="button" onClick={onCancel}>

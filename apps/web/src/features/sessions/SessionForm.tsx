@@ -5,7 +5,7 @@ import type { Campaign, Id, Session } from '@questkeeper/domain';
 interface SessionFormProps {
   campaign: Campaign;
   initial?: Session;
-  onSave: (session: Session) => void;
+  onSave: (session: Session) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -21,15 +21,18 @@ export function SessionForm({ campaign, initial, onSave, onCancel }: SessionForm
   const [npcIds, setNpcIds] = useState<Id[]>(initial?.npcIds ?? []);
   const [characterIds, setCharacterIds] = useState<Id[]>(initial?.characterIds ?? []);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const toggle = (setter: (fn: (cur: Id[]) => Id[]) => void, id: Id) =>
     setter((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || busy) return;
+    setError('');
+    setBusy(true);
     try {
-      onSave({
+      await onSave({
         id: initial?.id ?? crypto.randomUUID(),
         number: initial?.number ?? nextNumber(campaign),
         title: title.trim(),
@@ -42,6 +45,8 @@ export function SessionForm({ campaign, initial, onSave, onCancel }: SessionForm
     } catch (err) {
       if (err instanceof DomainError) setError(err.message);
       else throw err;
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -99,7 +104,7 @@ export function SessionForm({ campaign, initial, onSave, onCancel }: SessionForm
         </p>
       )}
       <div className="form-row">
-        <button className="button" type="submit" disabled={!title.trim()}>
+        <button className="button" type="submit" disabled={!title.trim() || busy}>
           Save session
         </button>
         <button className="button button--ghost" type="button" onClick={onCancel}>

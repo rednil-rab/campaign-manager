@@ -18,8 +18,8 @@ export function NpcCodexPage() {
 
   const close = () => setEditing(null);
 
-  const save = (npc: Npc) => {
-    upsertNpc(npc);
+  const save = async (npc: Npc) => {
+    await upsertNpc(npc);
     close();
   };
 
@@ -84,8 +84,8 @@ export function NpcCodexPage() {
           title="Delete NPC"
           message={confirmMessage(deleting)}
           onCancel={() => setDeleting(null)}
-          onConfirm={() => {
-            deleteNpc(deleting.id);
+          onConfirm={async () => {
+            await deleteNpc(deleting.id);
             setDeleting(null);
           }}
         />

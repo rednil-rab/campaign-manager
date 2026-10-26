@@ -165,6 +165,101 @@ describe('characters api', () => {
   });
 });
 
+describe('entity routes', () => {
+  async function newCampaign() {
+    const cookie = await signUp('a@example.com');
+    const created = await request(app).post('/api/campaigns').set('Cookie', cookie).send({ name: 'Mine' });
+    const base = `/api/campaigns/${created.body.id}`;
+    const put = (path: string, body: object) => request(app).put(`${base}${path}`).set('Cookie', cookie).send(body);
+    const del = (path: string) => request(app).delete(`${base}${path}`).set('Cookie', cookie);
+    return { cookie, base, put, del };
+  }
+
+  const npc = (over = {}) => ({ id: 'npc-1', name: 'Mara', role: '', location: '', disposition: 'ally', description: '', ...over });
+  const quest = (over = {}) => ({
+    id: 'q-1',
+    title: 'Find the crown',
+    status: 'active',
+    description: '',
+    prerequisiteQuestIds: [],
+    ...over,
+  });
+  const session = (over = {}) => ({
+    id: 's-1',
+    number: 1,
+    title: 'Start',
+    playedOn: '2025-01-31',
+    summary: '',
+    questIds: [],
+    npcIds: [],
+    characterIds: [],
+    ...over,
+  });
+
+  it('stores NPCs, quests and sessions that reference each other, and cascades deletes', async () => {
+    const { put, del } = await newCampaign();
+    expect((await put('/npcs/npc-1', npc())).status).toBe(200);
+    expect((await put('/quests/q-1', quest({ giverNpcId: 'npc-1' }))).status).toBe(200);
+    const withSession = await put('/sessions/s-1', session({ questIds: ['q-1'], npcIds: ['npc-1'] }));
+    expect(withSession.body.sessions[0].questIds).toEqual(['q-1']);
+
+    const afterNpc = await del('/npcs/npc-1');
+    expect(afterNpc.body.quests[0].giverNpcId).toBeUndefined();
+    expect(afterNpc.body.sessions[0].npcIds).toEqual([]);
+
+    const afterQuest = await del('/quests/q-1');
+    expect(afterQuest.body.quests).toEqual([]);
+    expect(afterQuest.body.sessions[0].questIds).toEqual([]);
+
+    expect((await del('/sessions/s-1')).body.sessions).toEqual([]);
+  });
+
+  it('rejects broken references and prerequisite cycles with 400', async () => {
+    const { put } = await newCampaign();
+    expect((await put('/quests/q-1', quest({ giverNpcId: 'ghost' }))).status).toBe(400);
+    expect((await put('/sessions/s-1', session({ questIds: ['ghost'] }))).status).toBe(400);
+    await put('/quests/q-1', quest());
+    await put('/quests/q-2', quest({ id: 'q-2', prerequisiteQuestIds: ['q-1'] }));
+    expect((await put('/quests/q-1', quest({ prerequisiteQuestIds: ['q-2'] }))).status).toBe(400);
+  });
+
+  it('validates the shape of the input', async () => {
+    const { put } = await newCampaign();
+    expect((await put('/quests/q-1', quest({ status: 'epic' }))).status).toBe(400);
+    expect((await put('/npcs/npc-1', npc({ disposition: 'scary' }))).status).toBe(400);
+    expect((await put('/sessions/s-1', session({ playedOn: 'tomorrow' }))).status).toBe(400);
+    expect((await put('/sessions/s-1', session({ number: 1.5 }))).status).toBe(400);
+    expect((await put('/quests/other', quest())).status).toBe(400);
+    expect((await put('/npcs/npc-1', npc({ name: '  ' }))).status).toBe(400);
+  });
+
+  it('manages stats, races and classes and keeps characters consistent', async () => {
+    const { put, del } = await newCampaign();
+    await put('/stats/hp', { id: 'hp', name: 'HP' });
+    await put('/races/elf', { id: 'elf', name: 'Elf' });
+    await put('/classes/mage', { id: 'mage', name: 'Mage' });
+    const withChar = await put('/characters/pc-1', character({ raceId: 'elf', classId: 'mage', stats: { hp: 7 } }));
+    expect(withChar.status).toBe(200);
+
+    expect((await put('/races/dup', { id: 'dup', name: 'elf' })).status).toBe(400);
+
+    const noRace = await del('/races/elf');
+    expect(noRace.body.characters[0].raceId).toBeUndefined();
+    expect(noRace.body.characters[0].race).toBe('Elf');
+    const noClass = await del('/classes/mage');
+    expect(noClass.body.characters[0].characterClass).toBe('Mage');
+    const noStat = await del('/stats/hp');
+    expect(noStat.body.characters[0].stats).toEqual({});
+  });
+
+  it('does not let another user touch the campaign', async () => {
+    const { base } = await newCampaign();
+    const other = await signUp('b@example.com');
+    const res = await request(app).put(`${base}/npcs/npc-1`).set('Cookie', other).send(npc());
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('mutateCampaign concurrency', () => {
   it('re-applies the change when another write lands first, and gives up after repeated conflicts', async () => {
     const repo = createMemoryCampaignRepo();

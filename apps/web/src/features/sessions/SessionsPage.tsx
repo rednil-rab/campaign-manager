@@ -17,8 +17,8 @@ export function SessionsPage() {
 
   const close = () => setEditing(null);
 
-  const save = (session: Session) => {
-    upsertSession(session);
+  const save = async (session: Session) => {
+    await upsertSession(session);
     close();
   };
 
@@ -82,8 +82,8 @@ export function SessionsPage() {
           title="Delete session"
           message={`Delete session #${deleting.number} "${deleting.title}"? Its quests and NPCs are not affected.`}
           onCancel={() => setDeleting(null)}
-          onConfirm={() => {
-            deleteSession(deleting.id);
+          onConfirm={async () => {
+            await deleteSession(deleting.id);
             setDeleting(null);
           }}
         />

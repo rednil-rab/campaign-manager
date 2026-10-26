@@ -1,12 +1,16 @@
 import {
-  DomainError,
   addCampaign,
   removeCampaign,
   setActiveCampaign as selectCampaign,
   type Campaign,
   type Id,
   type Library,
+  type Npc,
   type PlayerCharacter,
+  type Quest,
+  type RuleOption,
+  type Session,
+  type StatDefinition,
 } from '@questkeeper/domain';
 import { create } from 'zustand';
 import { api } from '../api/client';
@@ -25,30 +29,24 @@ interface CampaignState extends Library {
   deleteCampaign: (id: Id) => Promise<void>;
   setActiveCampaign: (id: Id) => void;
 
-  // Characters are stored on the server.
+  // Everything below is stored on the server and resolves once the saved campaign is applied.
   upsertCharacter: (character: PlayerCharacter) => Promise<void>;
   deleteCharacter: (id: Id) => Promise<void>;
-
-  // Everything below is not connected to the server yet and refuses to save.
-  upsertNpc: (...args: unknown[]) => never;
-  upsertStatDefinition: (...args: unknown[]) => never;
-  deleteStatDefinition: (...args: unknown[]) => never;
-  upsertRace: (...args: unknown[]) => never;
-  deleteRace: (...args: unknown[]) => never;
-  upsertClass: (...args: unknown[]) => never;
-  deleteClass: (...args: unknown[]) => never;
-  upsertQuest: (...args: unknown[]) => never;
-  upsertSession: (...args: unknown[]) => never;
-  deleteNpc: (...args: unknown[]) => never;
-  deleteQuest: (...args: unknown[]) => never;
-  deleteSession: (...args: unknown[]) => never;
+  upsertNpc: (npc: Npc) => Promise<void>;
+  deleteNpc: (id: Id) => Promise<void>;
+  upsertQuest: (quest: Quest) => Promise<void>;
+  deleteQuest: (id: Id) => Promise<void>;
+  upsertSession: (session: Session) => Promise<void>;
+  deleteSession: (id: Id) => Promise<void>;
+  upsertStatDefinition: (def: StatDefinition) => Promise<void>;
+  deleteStatDefinition: (id: Id) => Promise<void>;
+  upsertRace: (race: RuleOption) => Promise<void>;
+  deleteRace: (id: Id) => Promise<void>;
+  upsertClass: (option: RuleOption) => Promise<void>;
+  deleteClass: (id: Id) => Promise<void>;
 }
 
 const empty: Library = { campaigns: {}, order: [], activeCampaignId: null };
-
-const notYet = (what: string) => (): never => {
-  throw new DomainError(`Saving ${what} is not connected to the server yet.`);
-};
 
 const withCampaign = (lib: Library, campaign: Campaign): Library =>
   lib.campaigns[campaign.id]
@@ -64,6 +62,11 @@ export const useCampaignStore = create<CampaignState>()((set, get) => {
 
   /** Applies the campaign returned by the server, which is the source of truth. */
   const apply = (campaign: Campaign) => set((s) => withCampaign(s, campaign));
+
+  const save = async (kind: string, item: { id: Id }) =>
+    apply(await api<Campaign>('PUT', `/campaigns/${activeId()}/${kind}/${item.id}`, item));
+  const remove = async (kind: string, id: Id) =>
+    apply(await api<Campaign>('DELETE', `/campaigns/${activeId()}/${kind}/${id}`));
 
   return {
     ...empty,
@@ -103,23 +106,20 @@ export const useCampaignStore = create<CampaignState>()((set, get) => {
     },
     setActiveCampaign: (id) => set((s) => selectCampaign(s, id)),
 
-    upsertCharacter: async (character) =>
-      apply(await api<Campaign>('PUT', `/campaigns/${activeId()}/characters/${character.id}`, character)),
-    deleteCharacter: async (id) =>
-      apply(await api<Campaign>('DELETE', `/campaigns/${activeId()}/characters/${id}`)),
-
-    upsertNpc: notYet('NPCs'),
-    deleteNpc: notYet('NPCs'),
-    upsertQuest: notYet('quests'),
-    deleteQuest: notYet('quests'),
-    upsertSession: notYet('sessions'),
-    deleteSession: notYet('sessions'),
-    upsertStatDefinition: notYet('stats'),
-    deleteStatDefinition: notYet('stats'),
-    upsertRace: notYet('races'),
-    deleteRace: notYet('races'),
-    upsertClass: notYet('classes'),
-    deleteClass: notYet('classes'),
+    upsertCharacter: (item) => save('characters', item),
+    deleteCharacter: (id) => remove('characters', id),
+    upsertNpc: (item) => save('npcs', item),
+    deleteNpc: (id) => remove('npcs', id),
+    upsertQuest: (item) => save('quests', item),
+    deleteQuest: (id) => remove('quests', id),
+    upsertSession: (item) => save('sessions', item),
+    deleteSession: (id) => remove('sessions', id),
+    upsertStatDefinition: (item) => save('stats', item),
+    deleteStatDefinition: (id) => remove('stats', id),
+    upsertRace: (item) => save('races', item),
+    deleteRace: (id) => remove('races', id),
+    upsertClass: (item) => save('classes', item),
+    deleteClass: (id) => remove('classes', id),
   };
 });
 

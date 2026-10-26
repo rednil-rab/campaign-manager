@@ -11,8 +11,8 @@ interface DefinitionSectionProps {
   noun: string;
   hint: string;
   items: RuleOption[];
-  onSave: (item: RuleOption) => void;
-  onDelete: (id: string) => void;
+  onSave: (item: RuleOption) => void | Promise<void>;
+  onDelete: (id: string) => void | Promise<void>;
   describeDelete: (item: RuleOption) => string;
 }
 
@@ -74,8 +74,8 @@ export function DefinitionSection({
           <NameForm
             noun={noun}
             initial={editing === 'new' ? undefined : editing}
-            onSave={(item) => {
-              onSave(item);
+            onSave={async (item) => {
+              await onSave(item);
               close();
             }}
             onCancel={close}
@@ -88,8 +88,8 @@ export function DefinitionSection({
           title={`Delete ${noun}`}
           message={describeDelete(deleting)}
           onCancel={() => setDeleting(null)}
-          onConfirm={() => {
-            onDelete(deleting.id);
+          onConfirm={async () => {
+            await onDelete(deleting.id);
             setDeleting(null);
           }}
         />
