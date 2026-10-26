@@ -50,6 +50,19 @@ export function CharactersPage() {
             {p.player && <> Played by {p.player}</>}
           </p>
           <StatBlockView campaign={campaign} stats={p.stats} />
+          {p.inventory.length > 0 && (
+            <>
+              <h3 className="panel__subtitle">Inventory</h3>
+              <ul className="inventory-list">
+                {p.inventory.map((i) => (
+                  <li key={i.id}>
+                    {i.name} ×{i.quantity}
+                    {i.notes && <span className="muted"> — {i.notes}</span>}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
           {p.notes && <p>{p.notes}</p>}
           <p>Sessions: {sessionsForCharacter(campaign, p.id).map((s) => s.number).join(', ') || '—'}</p>
           <div className="form-row">

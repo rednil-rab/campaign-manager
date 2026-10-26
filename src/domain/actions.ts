@@ -1,6 +1,7 @@
 import type {
   Campaign,
   Id,
+  InventoryItem,
   Npc,
   PlayerCharacter,
   Quest,
@@ -42,6 +43,15 @@ function validateStats(c: Campaign, stats: Stats): void {
     if (!def) throw new DomainError(`Unknown stat: ${id}`);
     if (!Number.isInteger(value) || Math.abs(value) > MAX_STAT_VALUE) {
       throw new DomainError(`${def.name} must be a whole number between -${MAX_STAT_VALUE} and ${MAX_STAT_VALUE}`);
+    }
+  }
+}
+
+function validateInventory(items: InventoryItem[]): void {
+  for (const item of items) {
+    if (!item.name.trim()) throw new DomainError('Every inventory item needs a name');
+    if (!Number.isInteger(item.quantity) || item.quantity < 0 || item.quantity > MAX_STAT_VALUE) {
+      throw new DomainError(`${item.name} quantity must be a whole number between 0 and ${MAX_STAT_VALUE}`);
     }
   }
 }
@@ -121,6 +131,7 @@ export function upsertCharacter(c: Campaign, character: PlayerCharacter): Campai
     throw new DomainError(`Unknown class: ${character.classId}`);
   }
   validateStats(c, character.stats);
+  validateInventory(character.inventory);
   return { ...c, characters: upsert(c.characters, character) };
 }
 

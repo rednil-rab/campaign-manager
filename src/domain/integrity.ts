@@ -1,4 +1,4 @@
-import type { Campaign, Id, RuleOption, Stats } from './types';
+import type { Campaign, Id, InventoryItem, RuleOption, Stats } from './types';
 
 const isArray = (v: unknown): v is unknown[] => Array.isArray(v);
 
@@ -65,6 +65,18 @@ export function sanitizeCampaign(raw: Campaign): Campaign {
       ),
     );
 
+  const cleanInventory = (v: unknown): InventoryItem[] =>
+    Array.isArray(v)
+      ? v.filter(
+          (i): i is InventoryItem =>
+            !!i &&
+            typeof i.id === 'string' &&
+            typeof i.name === 'string' &&
+            Number.isInteger(i.quantity) &&
+            typeof i.notes === 'string',
+        )
+      : [];
+
   const rawCharacters = raw.characters ?? [];
   const migrateRaces = !Array.isArray(raw.races);
   const migrateClasses = !Array.isArray(raw.classes);
@@ -79,6 +91,7 @@ export function sanitizeCampaign(raw: Campaign): Campaign {
     return {
       ...p,
       stats: cleanStats(p.stats),
+      inventory: cleanInventory(p.inventory),
       raceId: race.id,
       race: race.text,
       classId: klass.id,

@@ -247,9 +247,29 @@ body {
   color: var(--text-dim);
 }
 
-.stats-fields {
+.stats-fields,
+.inventory-fields {
   border: 0;
   padding: 0;
+}
+
+.inventory-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr auto;
+  gap: var(--space);
+  align-items: end;
+  margin-bottom: var(--space);
+}
+
+.inventory-list {
+  margin: 0 0 var(--space);
+  padding-left: 1.2em;
+}
+
+.panel__subtitle {
+  margin: var(--space) 0 0;
+  font-size: 1rem;
+  color: var(--text-dim);
 }
 
 .stats-grid {

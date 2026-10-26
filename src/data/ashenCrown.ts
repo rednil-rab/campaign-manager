@@ -142,6 +142,10 @@ export const ashenCrown: Campaign = {
       classId: 'class-paladin',
       notes: 'Sworn to the Ash Watch before it fell out of favor.',
       stats: { level: 3, hp: 28, ac: 18, str: 16, dex: 10, con: 14, int: 8, wis: 12, cha: 15 },
+      inventory: [
+        { id: 'item-kael-sword', name: 'Longsword', quantity: 1, notes: 'Etched with the Ash Watch sigil' },
+        { id: 'item-kael-ration', name: 'Rations', quantity: 4, notes: '' },
+      ],
     },
     {
       id: 'pc-tamsin',
@@ -153,6 +157,10 @@ export const ashenCrown: Campaign = {
       classId: 'class-rogue',
       notes: 'Owes Mirelle a favor she would rather not discuss.',
       stats: { level: 3, hp: 21, ac: 15, str: 8, dex: 17, con: 12, int: 13, wis: 10, cha: 14 },
+      inventory: [
+        { id: 'item-tamsin-picks', name: "Thieves' tools", quantity: 1, notes: '' },
+        { id: 'item-tamsin-dagger', name: 'Daggers', quantity: 3, notes: '' },
+      ],
     },
     {
       id: 'pc-brindle',
@@ -164,6 +172,7 @@ export const ashenCrown: Campaign = {
       classId: 'class-cleric',
       notes: 'Keeps a vigil for the dead king.',
       stats: { level: 3, hp: 26, ac: 17, str: 12, dex: 9, con: 15, int: 10, wis: 17, cha: 11 },
+      inventory: [{ id: 'item-brindle-symbol', name: 'Holy symbol', quantity: 1, notes: 'Wrapped in black cloth' }],
     },
   ],
 };

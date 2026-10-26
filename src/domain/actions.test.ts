@@ -204,6 +204,25 @@ describe('characters', () => {
     expect(() => upsertNpc(ashenCrown, { ...npc, stats: { ghost: 1 } })).toThrow(DomainError);
   });
 
+  it('validates inventory items', () => {
+    const item = { id: 'i1', name: 'Rope', quantity: 2, notes: '' };
+    expect(upsertCharacter(ashenCrown, { ...kael, inventory: [item] }).characters[0].inventory).toEqual([item]);
+    const bad = (i: typeof item) => () => upsertCharacter(ashenCrown, { ...kael, inventory: [i] });
+    expect(bad({ ...item, name: '  ' })).toThrow(DomainError);
+    expect(bad({ ...item, quantity: -1 })).toThrow(DomainError);
+    expect(bad({ ...item, quantity: 1.5 })).toThrow(DomainError);
+    expect(bad({ ...item, quantity: NaN })).toThrow(DomainError);
+  });
+
+  it('upgrades saved characters that have no inventory', () => {
+    const legacy = {
+      ...ashenCrown,
+      characters: ashenCrown.characters.map(({ inventory: _i, ...rest }) => rest),
+    };
+    const result = sanitizeCampaign(legacy as unknown as typeof ashenCrown);
+    expect(result.characters.every((p) => Array.isArray(p.inventory) && p.inventory.length === 0)).toBe(true);
+  });
+
   it('rejects sessions that reference unknown characters', () => {
     const session = { ...ashenCrown.sessions[0], characterIds: ['ghost'] };
     expect(() => upsertSession(ashenCrown, session)).toThrow(DomainError);

@@ -7,7 +7,7 @@ Questkeeper is a browser-based campaign manager for tabletop role-playing games.
 - Create and manage multiple campaigns.
 - Track quests, their status, prerequisites, and quest givers.
 - Keep an NPC codex with roles, locations, and dispositions.
-- Track player characters and record which ones attended each session.
+- Track player characters and record which ones attended each session. Each character has an inventory (item, quantity, notes).
 - Define your game system per campaign on the Game System page: your own stats (Level, HP, an ability, anything), races and classes. Characters pick a race or class from the list or enter a custom one.
 - Review session summaries and the quests and NPCs associated with each session.
 - See a campaign dashboard with active quests and the latest session.

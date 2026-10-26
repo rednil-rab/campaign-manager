@@ -37,6 +37,14 @@ export interface PlayerCharacter {
   characterClass: string;
   notes: string;
   stats: Stats;
+  inventory: InventoryItem[];
+}
+
+export interface InventoryItem {
+  id: Id;
+  name: string;
+  quantity: number;
+  notes: string;
 }
 
 /** A named choice defined by the campaign's game system, such as a race or class. */
