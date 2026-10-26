@@ -26,7 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      - run: npm run build -- --base=/${{ github.event.repository.name }}/
+      - run: npm run build -w @questkeeper/web -- --base=/${{ github.event.repository.name }}/
       # Pages has no server-side routing; serving the app for unknown paths makes deep links work.
       - run: cp apps/web/dist/index.html apps/web/dist/404.html
       - uses: actions/upload-pages-artifact@v3

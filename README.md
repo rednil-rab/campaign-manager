@@ -26,6 +26,17 @@ npm run dev
 
 Open the local URL printed by Vite to use the app.
 
+### API server (work in progress)
+
+The web app still stores data in local storage. An Express + MongoDB API with accounts is being added in `apps/server` and will take over storage entity by entity. So far it has email/password registration and login (httpOnly cookie session).
+
+```sh
+cp apps/server/.env.example apps/server/.env   # then set JWT_SECRET (32+ characters)
+npm run dev -w @questkeeper/server              # needs MongoDB at MONGODB_URI
+```
+
+The server tests use an in-memory user store, so `npm test` does not need MongoDB.
+
 ## Development commands
 
 ```sh
