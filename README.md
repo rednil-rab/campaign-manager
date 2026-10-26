@@ -27,6 +27,7 @@ Open the local URL printed by Vite to use the app.
 ## Development commands
 
 ```sh
+npm run lint   # ESLint (TypeScript, React hooks, accessibility)
 npm test       # Run the test suite
 npm run build  # Type-check and build for production
 npm run preview

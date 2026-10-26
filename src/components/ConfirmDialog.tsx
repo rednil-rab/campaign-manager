@@ -22,6 +22,8 @@ export function ConfirmDialog({
         <button className="button button--danger" type="button" onClick={onConfirm}>
           {confirmLabel}
         </button>
+        {/* Focus the safe action first in a destructive dialog. */}
+        {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
         <button className="button button--ghost" type="button" autoFocus onClick={onCancel}>
           Cancel
         </button>
