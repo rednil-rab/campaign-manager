@@ -5,6 +5,17 @@ export const ashenCrown: Campaign = {
   name: 'The Ashen Crown',
   setting: 'The Cinderlands',
   tagline: 'A dead king’s crown smolders, and every faction wants it.',
+  statDefinitions: [
+    { id: 'level', name: 'Level' },
+    { id: 'hp', name: 'Max HP' },
+    { id: 'ac', name: 'Armor Class' },
+    { id: 'str', name: 'STR' },
+    { id: 'dex', name: 'DEX' },
+    { id: 'con', name: 'CON' },
+    { id: 'int', name: 'INT' },
+    { id: 'wis', name: 'WIS' },
+    { id: 'cha', name: 'CHA' },
+  ],
   npcs: [
     {
       id: 'npc-mirelle',
@@ -21,6 +32,7 @@ export const ashenCrown: Campaign = {
       location: 'Emberfall',
       disposition: 'neutral',
       description: 'Loyal to the realm, wary of adventurers poking at the crown.',
+      stats: { level: 6, hp: 58, ac: 17, str: 15, dex: 12, con: 14, int: 11, wis: 13, cha: 14 },
     },
     {
       id: 'npc-sorrel',
@@ -82,6 +94,7 @@ export const ashenCrown: Campaign = {
         'The party meets Mirelle at the Smoldering Flagon and takes a sealed letter to Captain Dorn.',
       questIds: ['quest-letter'],
       npcIds: ['npc-mirelle', 'npc-halric'],
+      characterIds: ['pc-kael', 'pc-tamsin'],
     },
     {
       id: 'session-2',
@@ -92,6 +105,7 @@ export const ashenCrown: Campaign = {
         'Halric sends the party to the Kingsbarrow. Mirelle hints that Sorrel knows more.',
       questIds: ['quest-barrow', 'quest-sorrel'],
       npcIds: ['npc-halric', 'npc-mirelle', 'npc-sorrel'],
+      characterIds: ['pc-kael', 'pc-tamsin', 'pc-brindle'],
     },
     {
       id: 'session-3',
@@ -102,6 +116,36 @@ export const ashenCrown: Campaign = {
         'Voss’s riders ambush the party on the road. The barrow is still unexplored.',
       questIds: ['quest-barrow', 'quest-sorrel'],
       npcIds: ['npc-voss', 'npc-sorrel'],
+      characterIds: ['pc-kael', 'pc-brindle'],
+    },
+  ],
+  characters: [
+    {
+      id: 'pc-kael',
+      name: 'Kael Ironvow',
+      player: 'Dana',
+      race: 'Human',
+      characterClass: 'Paladin',
+      notes: 'Sworn to the Ash Watch before it fell out of favor.',
+      stats: { level: 3, hp: 28, ac: 18, str: 16, dex: 10, con: 14, int: 8, wis: 12, cha: 15 },
+    },
+    {
+      id: 'pc-tamsin',
+      name: 'Tamsin Quill',
+      player: 'Omar',
+      race: 'Halfling',
+      characterClass: 'Rogue',
+      notes: 'Owes Mirelle a favor she would rather not discuss.',
+      stats: { level: 3, hp: 21, ac: 15, str: 8, dex: 17, con: 12, int: 13, wis: 10, cha: 14 },
+    },
+    {
+      id: 'pc-brindle',
+      name: 'Brindle',
+      player: 'Noa',
+      race: 'Dwarf',
+      characterClass: 'Cleric',
+      notes: 'Keeps a vigil for the dead king.',
+      stats: { level: 3, hp: 26, ac: 17, str: 12, dex: 9, con: 15, int: 10, wis: 17, cha: 11 },
     },
   ],
 };

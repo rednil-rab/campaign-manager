@@ -1,32 +1,45 @@
 import { useState, type FormEvent } from 'react';
-import type { Npc, NpcDisposition } from '../../domain/types';
+import { DomainError } from '../../domain/actions';
+import type { Campaign, Npc, NpcDisposition } from '../../domain/types';
+import { StatsFields } from '../characters/StatsFields';
+import { fromDraft, toDraft } from '../characters/statsDraft';
 
 const dispositions: NpcDisposition[] = ['ally', 'neutral', 'hostile', 'unknown'];
 
 interface NpcFormProps {
+  campaign: Campaign;
   initial?: Npc;
   onSave: (npc: Npc) => void;
   onCancel: () => void;
 }
 
-export function NpcForm({ initial, onSave, onCancel }: NpcFormProps) {
+export function NpcForm({ campaign, initial, onSave, onCancel }: NpcFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [role, setRole] = useState(initial?.role ?? '');
   const [location, setLocation] = useState(initial?.location ?? '');
   const [disposition, setDisposition] = useState<NpcDisposition>(initial?.disposition ?? 'unknown');
   const [description, setDescription] = useState(initial?.description ?? '');
+  const [stats, setStats] = useState(() => toDraft(initial?.stats));
+  const [error, setError] = useState('');
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onSave({
-      id: initial?.id ?? crypto.randomUUID(),
-      name: name.trim(),
-      role: role.trim(),
-      location: location.trim(),
-      disposition,
-      description: description.trim(),
-    });
+    try {
+      const values = fromDraft(campaign.statDefinitions, stats);
+      onSave({
+        id: initial?.id ?? crypto.randomUUID(),
+        name: name.trim(),
+        role: role.trim(),
+        location: location.trim(),
+        disposition,
+        description: description.trim(),
+        stats: Object.keys(values).length ? values : undefined,
+      });
+    } catch (err) {
+      if (err instanceof DomainError) setError(err.message);
+      else throw err;
+    }
   };
 
   return (
@@ -61,6 +74,12 @@ export function NpcForm({ initial, onSave, onCancel }: NpcFormProps) {
         Description
         <textarea className="input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
       </label>
+      <StatsFields definitions={campaign.statDefinitions} value={stats} onChange={setStats} />
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       <div className="form-row">
         <button className="button" type="submit" disabled={!name.trim()}>
           Save NPC

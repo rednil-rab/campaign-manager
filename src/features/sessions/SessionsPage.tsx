@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Dialog } from '../../components/Dialog';
 import { Panel, Tag } from '../../components/Panel';
-import { npcsForSession, questsForSession } from '../../domain/selectors';
+import { charactersForSession, npcsForSession, questsForSession } from '../../domain/selectors';
 import type { Session } from '../../domain/types';
 import { useCampaign, useCampaignStore } from '../../store/campaignStore';
 import { SessionForm } from './SessionForm';
@@ -38,6 +38,13 @@ export function SessionsPage() {
         <Panel key={s.id} title={`#${s.number} ${s.title}`}>
           <p className="muted">{s.playedOn}</p>
           <p>{s.summary}</p>
+          <p>
+            {charactersForSession(campaign, s).map((p) => (
+              <Tag key={p.id} tone="cyan">
+                {p.name}
+              </Tag>
+            ))}
+          </p>
           <p>
             {questsForSession(campaign, s).map((q) => (
               <Tag key={q.id}>{q.title}</Tag>

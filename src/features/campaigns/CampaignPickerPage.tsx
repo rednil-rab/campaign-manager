@@ -54,7 +54,7 @@ export function CampaignPickerPage() {
         return (
           <Panel key={id} title={c.name}>
             <p>
-              {c.sessions.length} sessions · {c.quests.length} quests · {c.npcs.length} NPCs
+              {c.sessions.length} sessions · {c.quests.length} quests · {c.npcs.length} NPCs · {c.characters.length} characters
             </p>
             <div className="form-row">
               <Link className="button" to={`/c/${id}`}>

@@ -5,6 +5,8 @@ import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { SessionsPage } from '../features/sessions/SessionsPage';
 import { QuestsPage } from '../features/quests/QuestsPage';
 import { NpcCodexPage } from '../features/npcs/NpcCodexPage';
+import { CharactersPage } from '../features/characters/CharactersPage';
+import { StatsPage } from '../features/stats/StatsPage';
 
 export const router = createBrowserRouter(
   [
@@ -16,6 +18,8 @@ export const router = createBrowserRouter(
         { index: true, element: <DashboardPage /> },
         { path: 'sessions', element: <SessionsPage /> },
         { path: 'quests', element: <QuestsPage /> },
+        { path: 'characters', element: <CharactersPage /> },
+        { path: 'stats', element: <StatsPage /> },
         { path: 'npcs', element: <NpcCodexPage /> },
       ],
     },

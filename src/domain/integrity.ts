@@ -1,4 +1,4 @@
-import type { Campaign, Id } from './types';
+import type { Campaign, Id, Stats } from './types';
 
 const isArray = (v: unknown): v is unknown[] => Array.isArray(v);
 
@@ -15,10 +15,30 @@ export function isCampaign(value: unknown): value is Campaign {
   );
 }
 
-/** Drops references to records that no longer exist. */
-export function sanitizeCampaign(c: Campaign): Campaign {
+/**
+ * Drops references to records that no longer exist and fills fields added
+ * after earlier versions were saved (characters, session attendance).
+ */
+export function sanitizeCampaign(raw: Campaign): Campaign {
+  const statDefinitions = (raw.statDefinitions ?? []).filter(
+    (d) => d && typeof d.id === 'string' && typeof d.name === 'string',
+  );
+  const statIds = new Set<Id>(statDefinitions.map((d) => d.id));
+  const cleanStats = (stats: unknown): Stats =>
+    Object.fromEntries(
+      Object.entries(stats && typeof stats === 'object' ? stats : {}).filter(
+        ([id, v]) => statIds.has(id) && typeof v === 'number' && Number.isFinite(v),
+      ),
+    );
+  const c = {
+    ...raw,
+    statDefinitions,
+    characters: (raw.characters ?? []).map((p) => ({ ...p, stats: cleanStats(p.stats) })),
+    npcs: raw.npcs.map((n) => (n.stats ? { ...n, stats: cleanStats(n.stats) } : n)),
+  };
   const questIds = new Set<Id>(c.quests.map((q) => q.id));
   const npcIds = new Set<Id>(c.npcs.map((n) => n.id));
+  const characterIds = new Set<Id>(c.characters.map((p) => p.id));
   return {
     ...c,
     quests: c.quests.map((q) => ({
@@ -30,6 +50,7 @@ export function sanitizeCampaign(c: Campaign): Campaign {
       ...s,
       questIds: s.questIds.filter((id) => questIds.has(id)),
       npcIds: s.npcIds.filter((id) => npcIds.has(id)),
+      characterIds: (s.characterIds ?? []).filter((id) => characterIds.has(id)),
     })),
   };
 }

@@ -118,7 +118,7 @@ export function QuestForm({ campaign, initial, onSave, onCreateNpc, onCancel }: 
 
       {creatingNpc && (
         <Dialog title="New NPC" onClose={() => setCreatingNpc(false)}>
-          <NpcForm onSave={saveNewNpc} onCancel={() => setCreatingNpc(false)} />
+          <NpcForm campaign={campaign} onSave={saveNewNpc} onCancel={() => setCreatingNpc(false)} />
         </Dialog>
       )}
     </>

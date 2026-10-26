@@ -36,7 +36,8 @@ export function DashboardPage() {
           <p>
             <Tag tone="cyan">{campaign.sessions.length}</Tag> sessions ·{' '}
             <Tag tone="cyan">{campaign.quests.length}</Tag> quests ·{' '}
-            <Tag tone="cyan">{campaign.npcs.length}</Tag> NPCs
+            <Tag tone="cyan">{campaign.npcs.length}</Tag> NPCs ·{' '}
+            <Tag tone="cyan">{campaign.characters.length}</Tag> characters
           </p>
         </Panel>
       </div>

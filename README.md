@@ -7,6 +7,8 @@ Questkeeper is a browser-based campaign manager for tabletop role-playing games.
 - Create and manage multiple campaigns.
 - Track quests, their status, prerequisites, and quest givers.
 - Keep an NPC codex with roles, locations, and dispositions.
+- Track player characters and record which ones attended each session.
+- Define your own stats per campaign (Level, HP, an ability, anything) and fill them in on characters and NPCs.
 - Review session summaries and the quests and NPCs associated with each session.
 - See a campaign dashboard with active quests and the latest session.
 - Start with the sample **The Ashen Crown** campaign or create a campaign from scratch.
@@ -47,7 +49,7 @@ src/
   domain/       Pure TypeScript: types, actions, selectors, integrity checks, tests
   store/        Zustand store: thin wrapper around the domain actions, with persistence
   data/         Sample campaign (The Ashen Crown)
-  features/     One folder per screen: campaigns, dashboard, sessions, quests, npcs
+  features/     One folder per screen: campaigns, dashboard, sessions, quests, npcs, characters, stats
   components/   Shared UI: Panel, Tag, Dialog, ConfirmDialog
   app/          Router and layout (sidebar, campaign route)
   styles/       Design tokens and global CSS
@@ -56,8 +58,8 @@ src/
 ## Architecture notes
 
 - **Domain logic is separate from React.** Everything under `src/domain` is plain functions that take a campaign and return a new one, so it can be tested without rendering anything. The Zustand store only calls these functions.
-- **Entities reference each other by ID.** Sessions point to quests and NPCs, and quests point to a giver NPC and prerequisite quests. Related data is looked up with selectors instead of being copied.
-- **Consistency is enforced in one place.** Deleting an NPC or quest also removes every reference to it. Editing a quest rejects unknown references, self-requirements and prerequisite cycles with a `DomainError` that the forms show inline.
+- **Entities reference each other by ID.** Sessions point to quests, NPCs and attending characters, and quests point to a giver NPC and prerequisite quests. Stat values on characters and NPCs are keyed by the ID of a per-campaign stat definition, so renaming a stat keeps its values. Related data is looked up with selectors instead of being copied.
+- **Consistency is enforced in one place.** Deleting an NPC, quest, character or stat also removes every reference to it. Editing a quest rejects unknown references, self-requirements and prerequisite cycles with a `DomainError` that the forms show inline.
 - **The campaign is part of the URL.** Pages live under `/c/:campaignId/...`, so links and refreshes stay correct and the campaign switcher is just navigation.
 - **Persistence is defensive.** Data is saved to local storage under a versioned schema. On load it is migrated, dangling references are dropped, and corrupt data falls back to the sample campaign.
 - **Components subscribe to narrow slices of the store** to avoid unnecessary re-renders.

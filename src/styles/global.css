@@ -247,6 +247,49 @@ body {
   color: var(--text-dim);
 }
 
+.stats-fields {
+  border: 0;
+  padding: 0;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: var(--space);
+}
+
+.abilities {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: var(--space);
+  margin: var(--space) 0;
+}
+
+.abilities__item {
+  border: 2px solid var(--border);
+  padding: var(--space);
+  text-align: center;
+}
+
+.abilities dt {
+  color: var(--cyan);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.abilities dd {
+  margin: 0;
+  color: var(--amber);
+  font-size: 1.4rem;
+}
+
+.stat-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space);
+}
+
 .error {
   margin: 0;
   color: #ff7a6b;

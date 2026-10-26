@@ -13,9 +13,11 @@ export const emptyCampaign = (id: Id, name: string): Campaign => ({
   name,
   setting: '',
   tagline: '',
+  statDefinitions: [],
   sessions: [],
   quests: [],
   npcs: [],
+  characters: [],
 });
 
 export const libraryOf = (...campaigns: Campaign[]): Library => ({

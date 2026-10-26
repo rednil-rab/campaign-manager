@@ -6,7 +6,9 @@ const links = [
   { to: '.', label: 'Dashboard', end: true },
   { to: 'sessions', label: 'Sessions' },
   { to: 'quests', label: 'Quests' },
+  { to: 'characters', label: 'Characters' },
   { to: 'npcs', label: 'NPC Codex' },
+  { to: 'stats', label: 'Stats' },
 ];
 
 export function Sidebar() {

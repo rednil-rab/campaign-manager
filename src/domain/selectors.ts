@@ -1,4 +1,4 @@
-import type { Campaign, Id, Npc, Quest, Session } from './types';
+import type { Campaign, Id, Npc, PlayerCharacter, Quest, Session, StatDefinition, Stats } from './types';
 
 const pick = <T extends { id: Id }>(items: T[], ids: Id[]): T[] =>
   ids.flatMap((id) => items.find((item) => item.id === id) ?? []);
@@ -8,6 +8,18 @@ export const getQuest = (c: Campaign, id: Id): Quest | undefined =>
 
 export const getNpc = (c: Campaign, id: Id): Npc | undefined =>
   c.npcs.find((n) => n.id === id);
+
+export const statsFor = (c: Campaign, stats: Stats | undefined): { def: StatDefinition; value: number }[] =>
+  c.statDefinitions.flatMap((def) => (stats && def.id in stats ? [{ def, value: stats[def.id] }] : []));
+
+export const countStatValues = (c: Campaign, statId: Id): number =>
+  [...c.characters, ...c.npcs].filter((x) => x.stats && statId in x.stats).length;
+
+export const charactersForSession = (c: Campaign, s: Session): PlayerCharacter[] =>
+  pick(c.characters, s.characterIds);
+
+export const sessionsForCharacter = (c: Campaign, characterId: Id): Session[] =>
+  c.sessions.filter((s) => s.characterIds.includes(characterId));
 
 export const questsForSession = (c: Campaign, s: Session): Quest[] =>
   pick(c.quests, s.questIds);

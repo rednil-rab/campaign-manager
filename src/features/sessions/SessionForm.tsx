@@ -19,6 +19,7 @@ export function SessionForm({ campaign, initial, onSave, onCancel }: SessionForm
   const [summary, setSummary] = useState(initial?.summary ?? '');
   const [questIds, setQuestIds] = useState<Id[]>(initial?.questIds ?? []);
   const [npcIds, setNpcIds] = useState<Id[]>(initial?.npcIds ?? []);
+  const [characterIds, setCharacterIds] = useState<Id[]>(initial?.characterIds ?? []);
   const [error, setError] = useState('');
 
   const toggle = (setter: (fn: (cur: Id[]) => Id[]) => void, id: Id) =>
@@ -36,6 +37,7 @@ export function SessionForm({ campaign, initial, onSave, onCancel }: SessionForm
         summary: summary.trim(),
         questIds,
         npcIds,
+        characterIds,
       });
     } catch (err) {
       if (err instanceof DomainError) setError(err.message);
@@ -57,6 +59,20 @@ export function SessionForm({ campaign, initial, onSave, onCancel }: SessionForm
         Summary
         <textarea className="input" rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} />
       </label>
+      <fieldset className="field checks">
+        <legend>Characters present</legend>
+        {campaign.characters.length === 0 && <span className="muted">No characters in this campaign yet.</span>}
+        {campaign.characters.map((p) => (
+          <label key={p.id} className="check">
+            <input
+              type="checkbox"
+              checked={characterIds.includes(p.id)}
+              onChange={() => toggle(setCharacterIds, p.id)}
+            />
+            {p.name}
+          </label>
+        ))}
+      </fieldset>
       <fieldset className="field checks">
         <legend>Quests</legend>
         {campaign.quests.length === 0 && <span className="muted">No quests in this campaign yet.</span>}

@@ -1,4 +1,4 @@
-import type { Campaign, Id, Npc, Quest, Session } from './types';
+import type { Campaign, Id, Npc, PlayerCharacter, Quest, Session, StatDefinition, Stats } from './types';
 
 export class DomainError extends Error {}
 
@@ -24,8 +24,48 @@ const createsCycle = (quests: Quest[], quest: Quest): boolean => {
   return false;
 };
 
+const MAX_STAT_VALUE = 100000;
+
+function validateStats(c: Campaign, stats: Stats): void {
+  for (const [id, value] of Object.entries(stats)) {
+    const def = c.statDefinitions.find((d) => d.id === id);
+    if (!def) throw new DomainError(`Unknown stat: ${id}`);
+    if (!Number.isInteger(value) || Math.abs(value) > MAX_STAT_VALUE) {
+      throw new DomainError(`${def.name} must be a whole number between -${MAX_STAT_VALUE} and ${MAX_STAT_VALUE}`);
+    }
+  }
+}
+
+export function upsertStatDefinition(c: Campaign, def: StatDefinition): Campaign {
+  const name = def.name.trim();
+  if (!name) throw new DomainError('A stat needs a name');
+  const clash = c.statDefinitions.some((d) => d.id !== def.id && d.name.toLowerCase() === name.toLowerCase());
+  if (clash) throw new DomainError(`A stat named "${name}" already exists`);
+  return { ...c, statDefinitions: upsert(c.statDefinitions, { ...def, name }) };
+}
+
+const withoutStat = (stats: Stats, id: Id): Stats => {
+  const { [id]: _removed, ...rest } = stats;
+  return rest;
+};
+
+export function deleteStatDefinition(c: Campaign, id: Id): Campaign {
+  return {
+    ...c,
+    statDefinitions: c.statDefinitions.filter((d) => d.id !== id),
+    characters: c.characters.map((p) => ({ ...p, stats: withoutStat(p.stats, id) })),
+    npcs: c.npcs.map((n) => (n.stats ? { ...n, stats: withoutStat(n.stats, id) } : n)),
+  };
+}
+
 export function upsertNpc(c: Campaign, npc: Npc): Campaign {
+  if (npc.stats) validateStats(c, npc.stats);
   return { ...c, npcs: upsert(c.npcs, npc) };
+}
+
+export function upsertCharacter(c: Campaign, character: PlayerCharacter): Campaign {
+  validateStats(c, character.stats);
+  return { ...c, characters: upsert(c.characters, character) };
 }
 
 export function upsertQuest(c: Campaign, quest: Quest): Campaign {
@@ -49,7 +89,17 @@ export function upsertSession(c: Campaign, session: Session): Campaign {
   if (missingQuest) throw new DomainError(`Unknown quest: ${missingQuest}`);
   const missingNpc = session.npcIds.find((id) => !c.npcs.some((n) => n.id === id));
   if (missingNpc) throw new DomainError(`Unknown NPC: ${missingNpc}`);
+  const missingCharacter = session.characterIds.find((id) => !c.characters.some((p) => p.id === id));
+  if (missingCharacter) throw new DomainError(`Unknown character: ${missingCharacter}`);
   return { ...c, sessions: upsert(c.sessions, session) };
+}
+
+export function deleteCharacter(c: Campaign, id: Id): Campaign {
+  return {
+    ...c,
+    characters: c.characters.filter((p) => p.id !== id),
+    sessions: c.sessions.map((s) => ({ ...s, characterIds: without(s.characterIds, id) })),
+  };
 }
 
 export function deleteNpc(c: Campaign, id: Id): Campaign {

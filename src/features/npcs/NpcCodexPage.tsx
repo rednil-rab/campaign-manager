@@ -6,6 +6,7 @@ import { questsForNpc, sessionsForNpc } from '../../domain/selectors';
 import type { Npc } from '../../domain/types';
 import { useCampaign, useCampaignStore } from '../../store/campaignStore';
 import { NpcForm } from './NpcForm';
+import { StatBlockView } from '../characters/StatBlockView';
 
 export function NpcCodexPage() {
   const campaign = useCampaign();
@@ -51,6 +52,7 @@ export function NpcCodexPage() {
             {n.location}
           </p>
           <p>{n.description}</p>
+          {n.stats && <StatBlockView campaign={campaign} stats={n.stats} />}
           <p>
             Quests: {questsForNpc(campaign, n.id).map((q) => q.title).join(', ') || '—'} · Sessions:{' '}
             {sessionsForNpc(campaign, n.id).map((s) => s.number).join(', ') || '—'}
@@ -68,7 +70,12 @@ export function NpcCodexPage() {
 
       {editing && (
         <Dialog title={editing === 'new' ? 'New NPC' : 'Edit NPC'} onClose={close}>
-          <NpcForm initial={editing === 'new' ? undefined : editing} onSave={save} onCancel={close} />
+          <NpcForm
+            campaign={campaign}
+            initial={editing === 'new' ? undefined : editing}
+            onSave={save}
+            onCancel={close}
+          />
         </Dialog>
       )}
 
