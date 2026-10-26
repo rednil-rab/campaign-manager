@@ -28,10 +28,10 @@ jobs:
       - run: npm test
       - run: npm run build -- --base=/${{ github.event.repository.name }}/
       # Pages has no server-side routing; serving the app for unknown paths makes deep links work.
-      - run: cp dist/index.html dist/404.html
+      - run: cp apps/web/dist/index.html apps/web/dist/404.html
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: apps/web/dist
 
   deploy:
     needs: build

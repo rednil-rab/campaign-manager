@@ -45,19 +45,23 @@ npm run preview
 ## Project structure
 
 ```text
-src/
-  domain/       Pure TypeScript: types, actions, selectors, integrity checks, tests
-  store/        Zustand store: thin wrapper around the domain actions, with persistence
-  data/         Sample campaign (The Ashen Crown)
-  features/     One folder per screen: campaigns, dashboard, sessions, quests, npcs, characters, system
-  components/   Shared UI: Panel, Tag, Dialog, ConfirmDialog
-  app/          Router and layout (sidebar, campaign route)
-  styles/       Design tokens and global CSS
+packages/
+  domain/       Pure TypeScript shared by web and server: types, actions, selectors,
+                integrity checks, sample campaign (The Ashen Crown), tests
+apps/
+  web/src/
+    store/        Zustand store: thin wrapper around the domain actions, with persistence
+    features/     One folder per screen: campaigns, dashboard, sessions, quests, npcs, characters, system
+    components/   Shared UI: Panel, Tag, Dialog, ConfirmDialog
+    app/          Router and layout (sidebar, campaign route)
+    styles/       Design tokens and global CSS
 ```
+
+This is an npm workspaces monorepo. A backend (`apps/server`) is being added; see the roadmap.
 
 ## Architecture notes
 
-- **Domain logic is separate from React.** Everything under `src/domain` is plain functions that take a campaign and return a new one, so it can be tested without rendering anything. The Zustand store only calls these functions.
+- **Domain logic is separate from React.** Everything in `packages/domain` is plain functions that take a campaign and return a new one, so it can be tested without rendering anything. The Zustand store only calls these functions.
 - **Entities reference each other by ID.** Sessions point to quests, NPCs and attending characters, and quests point to a giver NPC and prerequisite quests. Stat values on characters and NPCs are keyed by the ID of a per-campaign stat definition, so renaming a stat keeps its values. Races and classes work the same way; deleting one in use turns it into custom text on the affected characters. Related data is looked up with selectors instead of being copied.
 - **Consistency is enforced in one place.** Deleting an NPC, quest, character or stat also removes every reference to it. Editing a quest rejects unknown references, self-requirements and prerequisite cycles with a `DomainError` that the forms show inline.
 - **The campaign is part of the URL.** Pages live under `/c/:campaignId/...`, so links and refreshes stay correct and the campaign switcher is just navigation.
