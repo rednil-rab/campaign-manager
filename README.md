@@ -61,6 +61,20 @@ src/
 - **Persistence is defensive.** Data is saved to local storage under a versioned schema. On load it is migrated, dangling references are dropped, and corrupt data falls back to the sample campaign.
 - **Components subscribe to narrow slices of the store** to avoid unnecessary re-renders.
 
+## Deployment
+
+Every push to `main` runs tests and deploys to GitHub Pages via
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Pull requests run
+[`ci.yml`](.github/workflows/ci.yml) (tests + build).
+
+Live demo: https://rednil-rab.github.io/campaign-manager/
+
+One-time setup: in the repository, go to **Settings → Pages** and set **Source** to **GitHub Actions**.
+
+Notes:
+- The build passes `--base=/<repo-name>/`, and the router reads its `basename` from Vite's `BASE_URL`.
+- GitHub Pages has no SPA fallback, so the workflow copies `index.html` to `404.html` to make deep links work.
+
 ## Roadmap
 
 - Premade NPC templates that can be copied into any campaign.
