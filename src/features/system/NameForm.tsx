@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import { DomainError } from '../../domain/actions';
-import type { StatDefinition } from '../../domain/types';
+import type { RuleOption } from '../../domain/types';
 
-interface StatFormProps {
-  initial?: StatDefinition;
-  onSave: (def: StatDefinition) => void;
+interface NameFormProps {
+  noun: string;
+  initial?: RuleOption;
+  onSave: (option: RuleOption) => void;
   onCancel: () => void;
 }
 
-export function StatForm({ initial, onSave, onCancel }: StatFormProps) {
+export function NameForm({ noun, initial, onSave, onCancel }: NameFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [error, setError] = useState('');
 
@@ -26,7 +27,7 @@ export function StatForm({ initial, onSave, onCancel }: StatFormProps) {
   return (
     <form className="form" onSubmit={submit}>
       <label className="field">
-        Stat name
+        {`Name of the ${noun}`}
         <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={40} required />
       </label>
       {error && (
@@ -36,7 +37,7 @@ export function StatForm({ initial, onSave, onCancel }: StatFormProps) {
       )}
       <div className="form-row">
         <button className="button" type="submit" disabled={!name.trim()}>
-          Save stat
+          {`Save ${noun}`}
         </button>
         <button className="button button--ghost" type="button" onClick={onCancel}>
           Cancel

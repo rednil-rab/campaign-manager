@@ -14,6 +14,8 @@ export const emptyCampaign = (id: Id, name: string): Campaign => ({
   setting: '',
   tagline: '',
   statDefinitions: [],
+  races: [],
+  classes: [],
   sessions: [],
   quests: [],
   npcs: [],

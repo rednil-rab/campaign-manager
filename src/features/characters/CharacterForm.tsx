@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { DomainError } from '../../domain/actions';
 import type { Campaign, PlayerCharacter } from '../../domain/types';
+import { OptionPicker, fromPick, toPick } from './OptionPicker';
 import { StatsFields } from './StatsFields';
 import { fromDraft, toDraft } from './statsDraft';
 
@@ -14,8 +15,8 @@ interface CharacterFormProps {
 export function CharacterForm({ campaign, initial, onSave, onCancel }: CharacterFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [player, setPlayer] = useState(initial?.player ?? '');
-  const [race, setRace] = useState(initial?.race ?? '');
-  const [characterClass, setCharacterClass] = useState(initial?.characterClass ?? '');
+  const [race, setRace] = useState(() => toPick(initial?.raceId, initial?.race ?? ''));
+  const [klass, setKlass] = useState(() => toPick(initial?.classId, initial?.characterClass ?? ''));
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [stats, setStats] = useState(() => toDraft(initial?.stats));
   const [error, setError] = useState('');
@@ -24,12 +25,16 @@ export function CharacterForm({ campaign, initial, onSave, onCancel }: Character
     e.preventDefault();
     if (!name.trim()) return;
     try {
+      const r = fromPick(race);
+      const k = fromPick(klass);
       onSave({
         id: initial?.id ?? crypto.randomUUID(),
         name: name.trim(),
         player: player.trim(),
-        race: race.trim(),
-        characterClass: characterClass.trim(),
+        raceId: r.id,
+        race: r.text,
+        classId: k.id,
+        characterClass: k.text,
         notes: notes.trim(),
         stats: fromDraft(campaign.statDefinitions, stats),
       });
@@ -49,19 +54,8 @@ export function CharacterForm({ campaign, initial, onSave, onCancel }: Character
         Player
         <input className="input" value={player} onChange={(e) => setPlayer(e.target.value)} maxLength={80} />
       </label>
-      <label className="field">
-        Race
-        <input className="input" value={race} onChange={(e) => setRace(e.target.value)} maxLength={80} />
-      </label>
-      <label className="field">
-        Class
-        <input
-          className="input"
-          value={characterClass}
-          onChange={(e) => setCharacterClass(e.target.value)}
-          maxLength={80}
-        />
-      </label>
+      <OptionPicker label="Race" options={campaign.races} value={race} onChange={setRace} />
+      <OptionPicker label="Class" options={campaign.classes} value={klass} onChange={setKlass} />
       <StatsFields definitions={campaign.statDefinitions} value={stats} onChange={setStats} />
       <label className="field">
         Notes

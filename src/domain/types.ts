@@ -29,10 +29,20 @@ export interface PlayerCharacter {
   id: Id;
   name: string;
   player: string;
+  /** A race chosen from the campaign's races. When unset, `race` holds free text. */
+  raceId?: Id;
   race: string;
+  /** A class chosen from the campaign's classes. When unset, `characterClass` holds free text. */
+  classId?: Id;
   characterClass: string;
   notes: string;
   stats: Stats;
+}
+
+/** A named choice defined by the campaign's game system, such as a race or class. */
+export interface RuleOption {
+  id: Id;
+  name: string;
 }
 
 export interface Quest {
@@ -63,6 +73,8 @@ export interface Campaign {
   tagline: string;
   /** Stats available to every character and NPC in this campaign. */
   statDefinitions: StatDefinition[];
+  races: RuleOption[];
+  classes: RuleOption[];
   sessions: Session[];
   quests: Quest[];
   npcs: Npc[];

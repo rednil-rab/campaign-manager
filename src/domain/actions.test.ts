@@ -3,18 +3,28 @@ import { ashenCrown } from '../data/ashenCrown';
 import {
   DomainError,
   deleteCharacter,
+  deleteClass,
   deleteNpc,
   deleteQuest,
+  deleteRace,
   deleteSession,
   deleteStatDefinition,
   upsertCharacter,
+  upsertClass,
   upsertNpc,
   upsertQuest,
+  upsertRace,
   upsertSession,
   upsertStatDefinition,
 } from './actions';
 import { isCampaign, sanitizeCampaign } from './integrity';
-import { countStatValues } from './selectors';
+import {
+  classLabel,
+  countCharactersWithClass,
+  countCharactersWithRace,
+  countStatValues,
+  raceLabel,
+} from './selectors';
 
 describe('deleteNpc', () => {
   const result = deleteNpc(ashenCrown, 'npc-mirelle');
@@ -91,7 +101,7 @@ describe('integrity', () => {
   });
 
   it('upgrades data saved before characters and stats existed', () => {
-    const { characters: _characters, statDefinitions: _defs, ...rest } = ashenCrown;
+    const { characters: _characters, statDefinitions: _defs, races: _r, classes: _c, ...rest } = ashenCrown;
     const legacy = {
       ...rest,
       sessions: ashenCrown.sessions.map(({ characterIds: _ids, ...s }) => s),
@@ -100,7 +110,45 @@ describe('integrity', () => {
     const upgraded = sanitizeCampaign(legacy as unknown as typeof ashenCrown);
     expect(upgraded.characters).toEqual([]);
     expect(upgraded.statDefinitions).toEqual([]);
+    expect(upgraded.races).toEqual([]);
     expect(upgraded.sessions.every((s) => s.characterIds.length === 0)).toBe(true);
+  });
+
+  it('turns free-text races and classes into options once, then leaves custom text alone', () => {
+    const { races: _r, classes: _c, ...rest } = ashenCrown;
+    const text = (id: string, race: string, characterClass: string) => ({
+      ...ashenCrown.characters[0],
+      id,
+      race,
+      raceId: undefined,
+      characterClass,
+      classId: undefined,
+    });
+    const v2 = {
+      ...rest,
+      characters: [text('a', 'Human', 'Paladin'), text('b', ' human ', 'Bard'), text('c', '', '')],
+    } as unknown as typeof ashenCrown;
+
+    const migrated = sanitizeCampaign(v2);
+    expect(migrated.races).toEqual([{ id: 'race:human', name: 'Human' }]);
+    expect(migrated.classes.map((o) => o.name)).toEqual(['Paladin', 'Bard']);
+    expect(migrated.characters[0]).toMatchObject({ raceId: 'race:human', race: '', classId: 'class:paladin' });
+    expect(migrated.characters[1]).toMatchObject({ raceId: 'race:human', race: '', classId: 'class:bard' });
+    expect(migrated.characters[2]).toMatchObject({ raceId: undefined, race: '', classId: undefined });
+
+    // Once options exist, a custom value is kept as text rather than re-migrated.
+    const custom = { ...migrated, characters: [{ ...migrated.characters[0], raceId: undefined, race: 'Tiefling' }] };
+    const again = sanitizeCampaign(custom);
+    expect(again.races).toHaveLength(1);
+    expect(again.characters[0]).toMatchObject({ raceId: undefined, race: 'Tiefling' });
+  });
+
+  it('drops a race or class id that no longer exists', () => {
+    const dirty = {
+      ...ashenCrown,
+      characters: [{ ...ashenCrown.characters[0], raceId: 'ghost', classId: 'ghost' }],
+    };
+    expect(sanitizeCampaign(dirty).characters[0]).toMatchObject({ raceId: undefined, classId: undefined });
   });
 
   it('drops attendance of unknown characters', () => {
@@ -189,5 +237,46 @@ describe('stat definitions', () => {
   it('counts how many records hold a stat value', () => {
     expect(countStatValues(ashenCrown, 'hp')).toBe(4);
     expect(countStatValues(ashenCrown, 'missing')).toBe(0);
+  });
+});
+
+describe('races and classes', () => {
+  const kael = ashenCrown.characters[0];
+
+  it('adds and renames options with unique, trimmed names', () => {
+    const added = upsertRace(ashenCrown, { id: 'race-orc', name: ' Orc ' });
+    expect(added.races[added.races.length - 1]).toEqual({ id: 'race-orc', name: 'Orc' });
+    expect(() => upsertRace(ashenCrown, { id: 'x', name: 'human' })).toThrow(DomainError);
+    expect(() => upsertClass(ashenCrown, { id: 'x', name: '  ' })).toThrow(DomainError);
+    expect(() => upsertClass(ashenCrown, { id: 'class-wizard', name: 'WIZARD' })).not.toThrow();
+  });
+
+  it('renaming keeps characters linked and changes their label', () => {
+    const renamed = upsertRace(ashenCrown, { id: 'race-human', name: 'Man' });
+    expect(raceLabel(renamed, renamed.characters[0])).toBe('Man');
+    expect(classLabel(renamed, renamed.characters[0])).toBe('Paladin');
+  });
+
+  it('deleting an option keeps its name as custom text on characters', () => {
+    const noRace = deleteRace(ashenCrown, 'race-human');
+    expect(noRace.races.some((r) => r.id === 'race-human')).toBe(false);
+    expect(noRace.characters[0]).toMatchObject({ raceId: undefined, race: 'Human' });
+    expect(raceLabel(noRace, noRace.characters[0])).toBe('Human');
+    const noClass = deleteClass(ashenCrown, 'class-paladin');
+    expect(noClass.characters[0]).toMatchObject({ classId: undefined, characterClass: 'Paladin' });
+    expect(deleteRace(ashenCrown, 'missing')).toBe(ashenCrown);
+    expect(ashenCrown.characters[0].raceId).toBe('race-human');
+  });
+
+  it('counts characters using an option', () => {
+    expect(countCharactersWithRace(ashenCrown, 'race-human')).toBe(1);
+    expect(countCharactersWithClass(ashenCrown, 'class-wizard')).toBe(0);
+  });
+
+  it('rejects characters with unknown race or class ids but allows custom text', () => {
+    expect(() => upsertCharacter(ashenCrown, { ...kael, raceId: 'ghost' })).toThrow(DomainError);
+    expect(() => upsertCharacter(ashenCrown, { ...kael, classId: 'ghost' })).toThrow(DomainError);
+    const custom = upsertCharacter(ashenCrown, { ...kael, raceId: undefined, race: 'Tiefling' });
+    expect(raceLabel(custom, custom.characters[0])).toBe('Tiefling');
   });
 });

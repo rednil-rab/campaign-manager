@@ -4,7 +4,7 @@ import { ashenCrown } from '../data/ashenCrown';
 import * as actions from '../domain/actions';
 import * as lib from '../domain/library';
 import type { Library } from '../domain/library';
-import type { Campaign, Id, Npc, PlayerCharacter, Quest, Session, StatDefinition } from '../domain/types';
+import type { Campaign, Id, Npc, PlayerCharacter, Quest, RuleOption, Session, StatDefinition } from '../domain/types';
 
 interface CampaignState extends Library {
   createCampaign: (name: string) => Id;
@@ -16,6 +16,10 @@ interface CampaignState extends Library {
   upsertNpc: (npc: Npc) => void;
   upsertStatDefinition: (def: StatDefinition) => void;
   deleteStatDefinition: (id: Id) => void;
+  upsertRace: (race: RuleOption) => void;
+  deleteRace: (id: Id) => void;
+  upsertClass: (option: RuleOption) => void;
+  deleteClass: (id: Id) => void;
   upsertCharacter: (character: PlayerCharacter) => void;
   upsertQuest: (quest: Quest) => void;
   upsertSession: (session: Session) => void;
@@ -58,6 +62,10 @@ export const useCampaignStore = create<CampaignState>()(
         upsertNpc: (npc) => mutateActive((c) => actions.upsertNpc(c, npc)),
         upsertStatDefinition: (d) => mutateActive((c) => actions.upsertStatDefinition(c, d)),
         deleteStatDefinition: (id) => mutateActive((c) => actions.deleteStatDefinition(c, id)),
+        upsertRace: (r) => mutateActive((c) => actions.upsertRace(c, r)),
+        deleteRace: (id) => mutateActive((c) => actions.deleteRace(c, id)),
+        upsertClass: (o) => mutateActive((c) => actions.upsertClass(c, o)),
+        deleteClass: (id) => mutateActive((c) => actions.deleteClass(c, id)),
         upsertCharacter: (p) => mutateActive((c) => actions.upsertCharacter(c, p)),
         upsertQuest: (q) => mutateActive((c) => actions.upsertQuest(c, q)),
         upsertSession: (x) => mutateActive((c) => actions.upsertSession(c, x)),

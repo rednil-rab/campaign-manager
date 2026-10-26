@@ -1,4 +1,14 @@
-import type { Campaign, Id, Npc, PlayerCharacter, Quest, Session, StatDefinition, Stats } from './types';
+import type {
+  Campaign,
+  Id,
+  Npc,
+  PlayerCharacter,
+  Quest,
+  RuleOption,
+  Session,
+  StatDefinition,
+  Stats,
+} from './types';
 
 export class DomainError extends Error {}
 
@@ -36,12 +46,52 @@ function validateStats(c: Campaign, stats: Stats): void {
   }
 }
 
+/** Adds or renames an option, keeping names non-empty and unique (case-insensitive). */
+function upsertOption<T extends RuleOption>(list: T[], item: T, noun: string): T[] {
+  const name = item.name.trim();
+  if (!name) throw new DomainError(`A ${noun} needs a name`);
+  if (list.some((o) => o.id !== item.id && o.name.toLowerCase() === name.toLowerCase())) {
+    throw new DomainError(`A ${noun} named "${name}" already exists`);
+  }
+  return upsert(list, { ...item, name });
+}
+
 export function upsertStatDefinition(c: Campaign, def: StatDefinition): Campaign {
-  const name = def.name.trim();
-  if (!name) throw new DomainError('A stat needs a name');
-  const clash = c.statDefinitions.some((d) => d.id !== def.id && d.name.toLowerCase() === name.toLowerCase());
-  if (clash) throw new DomainError(`A stat named "${name}" already exists`);
-  return { ...c, statDefinitions: upsert(c.statDefinitions, { ...def, name }) };
+  return { ...c, statDefinitions: upsertOption(c.statDefinitions, def, 'stat') };
+}
+
+export const upsertRace = (c: Campaign, race: RuleOption): Campaign => ({
+  ...c,
+  races: upsertOption(c.races, race, 'race'),
+});
+
+export const upsertClass = (c: Campaign, option: RuleOption): Campaign => ({
+  ...c,
+  classes: upsertOption(c.classes, option, 'class'),
+});
+
+/** Characters that used the removed race keep its name as free text. */
+export function deleteRace(c: Campaign, id: Id): Campaign {
+  const removed = c.races.find((r) => r.id === id);
+  if (!removed) return c;
+  return {
+    ...c,
+    races: c.races.filter((r) => r.id !== id),
+    characters: c.characters.map((p) => (p.raceId === id ? { ...p, raceId: undefined, race: removed.name } : p)),
+  };
+}
+
+/** Characters that used the removed class keep its name as free text. */
+export function deleteClass(c: Campaign, id: Id): Campaign {
+  const removed = c.classes.find((o) => o.id === id);
+  if (!removed) return c;
+  return {
+    ...c,
+    classes: c.classes.filter((o) => o.id !== id),
+    characters: c.characters.map((p) =>
+      p.classId === id ? { ...p, classId: undefined, characterClass: removed.name } : p,
+    ),
+  };
 }
 
 const withoutStat = (stats: Stats, id: Id): Stats => {
@@ -64,6 +114,12 @@ export function upsertNpc(c: Campaign, npc: Npc): Campaign {
 }
 
 export function upsertCharacter(c: Campaign, character: PlayerCharacter): Campaign {
+  if (character.raceId && !c.races.some((r) => r.id === character.raceId)) {
+    throw new DomainError(`Unknown race: ${character.raceId}`);
+  }
+  if (character.classId && !c.classes.some((o) => o.id === character.classId)) {
+    throw new DomainError(`Unknown class: ${character.classId}`);
+  }
   validateStats(c, character.stats);
   return { ...c, characters: upsert(c.characters, character) };
 }

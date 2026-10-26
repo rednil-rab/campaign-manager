@@ -15,6 +15,19 @@ export const statsFor = (c: Campaign, stats: Stats | undefined): { def: StatDefi
 export const countStatValues = (c: Campaign, statId: Id): number =>
   [...c.characters, ...c.npcs].filter((x) => x.stats && statId in x.stats).length;
 
+/** Display names: the chosen option's name, or the character's free text. */
+export const raceLabel = (c: Campaign, p: PlayerCharacter): string =>
+  (p.raceId && c.races.find((r) => r.id === p.raceId)?.name) || p.race;
+
+export const classLabel = (c: Campaign, p: PlayerCharacter): string =>
+  (p.classId && c.classes.find((o) => o.id === p.classId)?.name) || p.characterClass;
+
+export const countCharactersWithRace = (c: Campaign, id: Id): number =>
+  c.characters.filter((p) => p.raceId === id).length;
+
+export const countCharactersWithClass = (c: Campaign, id: Id): number =>
+  c.characters.filter((p) => p.classId === id).length;
+
 export const charactersForSession = (c: Campaign, s: Session): PlayerCharacter[] =>
   pick(c.characters, s.characterIds);
 

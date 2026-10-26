@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Dialog } from '../../components/Dialog';
 import { Panel, Tag } from '../../components/Panel';
-import { sessionsForCharacter } from '../../domain/selectors';
+import { classLabel, raceLabel, sessionsForCharacter } from '../../domain/selectors';
 import type { PlayerCharacter } from '../../domain/types';
 import { useCampaign, useCampaignStore } from '../../store/campaignStore';
 import { CharacterForm } from './CharacterForm';
@@ -44,7 +44,9 @@ export function CharactersPage() {
       {campaign.characters.map((p) => (
         <Panel key={p.id} title={p.name}>
           <p>
-            <Tag tone="cyan">{[p.race, p.characterClass].filter(Boolean).join(' ') || 'Adventurer'}</Tag>
+            <Tag tone="cyan">
+              {[raceLabel(campaign, p), classLabel(campaign, p)].filter(Boolean).join(' ') || 'Adventurer'}
+            </Tag>
             {p.player && <> Played by {p.player}</>}
           </p>
           <StatBlockView campaign={campaign} stats={p.stats} />

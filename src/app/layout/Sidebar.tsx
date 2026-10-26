@@ -8,7 +8,7 @@ const links = [
   { to: 'quests', label: 'Quests' },
   { to: 'characters', label: 'Characters' },
   { to: 'npcs', label: 'NPC Codex' },
-  { to: 'stats', label: 'Stats' },
+  { to: 'system', label: 'Game System' },
 ];
 
 export function Sidebar() {

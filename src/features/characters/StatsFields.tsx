@@ -9,7 +9,7 @@ interface StatsFieldsProps {
 
 export function StatsFields({ definitions, value, onChange }: StatsFieldsProps) {
   if (definitions.length === 0) {
-    return <p className="muted">No stats defined for this campaign yet. Add some on the Stats page.</p>;
+    return <p className="muted">No stats defined for this campaign yet. Add some on the Game System page.</p>;
   }
 
   return (
