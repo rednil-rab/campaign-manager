@@ -63,5 +63,4 @@ src/
 
 ## Roadmap
 
-- Create, edit and delete sessions.
 - Premade NPC templates that can be copied into any campaign.
