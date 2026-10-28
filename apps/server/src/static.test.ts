@@ -5,6 +5,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from './app';
 import { createMemoryCampaignRepo } from './campaigns/memoryCampaignRepo';
+import { createMemoryShareRepo } from './shares/memoryShareRepo';
 import { createMemoryUserRepo } from './users/memoryUserRepo';
 
 const config = { jwtSecret: 'x'.repeat(32), bcryptRounds: 4, secureCookies: false };
@@ -17,7 +18,7 @@ beforeAll(() => {
   mkdirSync(path.join(dir, 'assets'));
   writeFileSync(path.join(dir, 'index.html'), '<!doctype html><title>Questkeeper</title>');
   writeFileSync(path.join(dir, 'assets', 'app-123.js'), 'console.log(1)');
-  app = createApp({ users: createMemoryUserRepo(), campaigns: createMemoryCampaignRepo(), config, webDir: dir });
+  app = createApp({ users: createMemoryUserRepo(), campaigns: createMemoryCampaignRepo(), shares: createMemoryShareRepo(), config, webDir: dir });
 });
 
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -45,7 +46,7 @@ describe('serving the web app', () => {
   });
 
   it('does not serve the web app when no directory is configured', async () => {
-    const apiOnly = createApp({ users: createMemoryUserRepo(), campaigns: createMemoryCampaignRepo(), config });
+    const apiOnly = createApp({ users: createMemoryUserRepo(), campaigns: createMemoryCampaignRepo(), shares: createMemoryShareRepo(), config });
     expect((await request(apiOnly).get('/')).status).toBe(404);
   });
 });

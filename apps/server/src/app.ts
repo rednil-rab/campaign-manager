@@ -6,11 +6,14 @@ import { campaignsRouter } from './campaigns/routes';
 import type { CampaignRepo } from './campaigns/types';
 import type { Config } from './config';
 import { HttpError } from './errors';
+import { playRouter } from './shares/playRoutes';
+import type { ShareRepo } from './shares/types';
 import type { UserRepo } from './users/types';
 
 export interface AppDeps {
   users: UserRepo;
   campaigns: CampaignRepo;
+  shares: ShareRepo;
   config: Pick<Config, 'jwtSecret' | 'bcryptRounds' | 'secureCookies'>;
   /** Directory with the built web app. When set, it is served with a single-page-app fallback. */
   webDir?: string;
@@ -30,7 +33,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   res.status(500).json({ error: 'Internal server error' });
 };
 
-export function createApp({ users, campaigns, config, webDir }: AppDeps) {
+export function createApp({ users, campaigns, shares, config, webDir }: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
   // Behind the host's proxy, so req.secure and client addresses are correct.
@@ -42,7 +45,8 @@ export function createApp({ users, campaigns, config, webDir }: AppDeps) {
     res.json({ ok: true });
   });
   app.use('/api/auth', authRouter(users, config));
-  app.use('/api/campaigns', campaignsRouter(campaigns, config));
+  app.use('/api/campaigns', campaignsRouter(campaigns, shares, config));
+  app.use('/api/play', playRouter(campaigns, shares));
   app.use('/api', (_req, _res) => {
     throw new HttpError(404, 'Not found');
   });
@@ -60,8 +64,13 @@ export function createApp({ users, campaigns, config, webDir }: AppDeps) {
         },
       }),
     );
-    app.get('/{*splat}', (_req, res) => {
+    app.get('/{*splat}', (req, res) => {
       res.setHeader('Cache-Control', 'no-cache');
+      // The player page URL holds a secret, so keep it out of referrers and search indexes.
+      if (req.path.startsWith('/play/')) {
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        res.setHeader('X-Robots-Tag', 'noindex');
+      }
       res.sendFile(path.join(webDir, 'index.html'));
     });
   }

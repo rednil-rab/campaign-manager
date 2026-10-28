@@ -5,6 +5,7 @@ import { MongoClient } from 'mongodb';
 import { createApp } from './app';
 import { loadConfig } from './config';
 import { createMongoCampaignRepo } from './campaigns/mongoCampaignRepo';
+import { createMongoShareRepo } from './shares/mongoShareRepo';
 import { createMongoUserRepo } from './users/mongoUserRepo';
 
 const config = loadConfig();
@@ -20,6 +21,7 @@ const serveWeb = existsSync(path.join(webDir, 'index.html'));
 const app = createApp({
   users: await createMongoUserRepo(db),
   campaigns: await createMongoCampaignRepo(db),
+  shares: await createMongoShareRepo(db),
   config,
   webDir: serveWeb ? webDir : undefined,
 });

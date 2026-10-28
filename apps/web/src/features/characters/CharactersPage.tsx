@@ -6,6 +6,7 @@ import { classLabel, raceLabel, sessionsForCharacter } from '@questkeeper/domain
 import type { PlayerCharacter } from '@questkeeper/domain';
 import { useCampaign, useCampaignStore } from '../../store/campaignStore';
 import { CharacterForm } from './CharacterForm';
+import { ShareDialog } from './ShareDialog';
 import { StatBlockView } from './StatBlockView';
 
 export function CharactersPage() {
@@ -15,6 +16,7 @@ export function CharactersPage() {
   // 'new' opens an empty form; a character opens it for editing.
   const [editing, setEditing] = useState<PlayerCharacter | 'new' | null>(null);
   const [deleting, setDeleting] = useState<PlayerCharacter | null>(null);
+  const [sharing, setSharing] = useState<PlayerCharacter | null>(null);
 
   const close = () => setEditing(null);
 
@@ -64,10 +66,19 @@ export function CharactersPage() {
             </>
           )}
           {p.notes && <p>{p.notes}</p>}
+          {p.playerNotes && (
+            <>
+              <h3 className="panel__subtitle">Player notes</h3>
+              <p>{p.playerNotes}</p>
+            </>
+          )}
           <p>Sessions: {sessionsForCharacter(campaign, p.id).map((s) => s.number).join(', ') || '—'}</p>
           <div className="form-row">
             <button className="button" type="button" onClick={() => setEditing(p)}>
               Edit
+            </button>
+            <button className="button button--ghost" type="button" onClick={() => setSharing(p)}>
+              Share
             </button>
             <button className="button button--danger" type="button" onClick={() => setDeleting(p)}>
               Delete
@@ -86,6 +97,8 @@ export function CharactersPage() {
           />
         </Dialog>
       )}
+
+      {sharing && <ShareDialog campaignId={campaign.id} character={sharing} onClose={() => setSharing(null)} />}
 
       {deleting && (
         <ConfirmDialog

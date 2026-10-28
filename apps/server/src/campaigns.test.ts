@@ -4,13 +4,14 @@ import { createApp } from './app';
 import { createMemoryCampaignRepo } from './campaigns/memoryCampaignRepo';
 import { mutateCampaign } from './campaigns/service';
 import { HttpError } from './errors';
+import { createMemoryShareRepo } from './shares/memoryShareRepo';
 import { createMemoryUserRepo } from './users/memoryUserRepo';
 
 const config = { jwtSecret: 'x'.repeat(32), bcryptRounds: 4, secureCookies: false };
 
 let app: ReturnType<typeof createApp>;
 beforeEach(() => {
-  app = createApp({ users: createMemoryUserRepo(), campaigns: createMemoryCampaignRepo(), config });
+  app = createApp({ users: createMemoryUserRepo(), campaigns: createMemoryCampaignRepo(), shares: createMemoryShareRepo(), config });
 });
 
 async function signUp(email: string): Promise<string> {

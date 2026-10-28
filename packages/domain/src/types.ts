@@ -36,6 +36,8 @@ export interface PlayerCharacter {
   classId?: Id;
   characterClass: string;
   notes: string;
+  /** Written by the player through their share link; the DM-only `notes` is never shown to players. */
+  playerNotes?: string;
   stats: Stats;
   inventory: InventoryItem[];
 }

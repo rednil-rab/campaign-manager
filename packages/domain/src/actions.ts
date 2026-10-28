@@ -161,6 +161,26 @@ export function upsertSession(c: Campaign, session: Session): Campaign {
   return { ...c, sessions: upsert(c.sessions, session) };
 }
 
+/**
+ * What a player may change about their own character: the inventory and their notes.
+ * Everything else, including the DM's private notes, is left untouched.
+ */
+export function updateCharacterByPlayer(
+  c: Campaign,
+  characterId: Id,
+  changes: { inventory: InventoryItem[]; playerNotes: string },
+): Campaign {
+  const existing = c.characters.find((p) => p.id === characterId);
+  if (!existing) throw new DomainError('Character not found');
+  validateInventory(changes.inventory);
+  return {
+    ...c,
+    characters: c.characters.map((p) =>
+      p.id === characterId ? { ...p, inventory: changes.inventory, playerNotes: changes.playerNotes } : p,
+    ),
+  };
+}
+
 export function deleteCharacter(c: Campaign, id: Id): Campaign {
   return {
     ...c,

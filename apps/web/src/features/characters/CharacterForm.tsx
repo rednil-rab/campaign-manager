@@ -42,6 +42,7 @@ export function CharacterForm({ campaign, initial, onSave, onCancel }: Character
         classId: k.id,
         characterClass: k.text,
         notes: notes.trim(),
+        playerNotes: initial?.playerNotes,
         stats: fromDraft(campaign.statDefinitions, stats),
         inventory: fromItemDrafts(items),
       });

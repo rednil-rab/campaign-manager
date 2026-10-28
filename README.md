@@ -12,6 +12,7 @@ Questkeeper is a browser-based campaign manager for tabletop role-playing games.
 - Review session summaries and the quests and NPCs associated with each session.
 - See a campaign dashboard with active quests and the latest session.
 - Start with the sample **The Ashen Crown** campaign or create a campaign from scratch.
+- Share a character with its player: the **Share** button creates a private link that opens a sign-up-free page where the player sees only their own sheet and edits their inventory and player notes. The DM's private notes and the rest of the campaign are never exposed. Links can be regenerated or revoked.
 
 Your campaigns are stored on the server in MongoDB and belong to your account, so they follow you across browsers and devices.
 
@@ -42,6 +43,8 @@ Everything is under `/api`. Accounts use an httpOnly session cookie.
 - `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
 - `GET|POST /campaigns`, `PATCH|DELETE /campaigns/:id`
 - `PUT|DELETE /campaigns/:id/<kind>/:entityId`, where `<kind>` is `characters`, `npcs`, `quests`, `sessions`, `stats`, `races` or `classes`. Each returns the updated campaign.
+- `GET /campaigns/:id/shares`, `POST|DELETE /campaigns/:id/characters/:characterId/share`: list, create/regenerate and revoke player links.
+- `GET|PUT /play/:token` (no login): the player's view of one character, and an update of its inventory and player notes. The token is 256 random bits, only that character is reachable, responses are `no-store`/`noindex`, and requests are rate limited per IP. Anyone holding the link can edit, so treat it like a password.
 
 Each campaign is one MongoDB document with a version number. The server loads it, applies a domain function from `@questkeeper/domain`, and saves it only if nobody changed it in between (it retries, then answers 409). Input is validated and copied field by field, and every query is scoped to the signed-in owner.
 

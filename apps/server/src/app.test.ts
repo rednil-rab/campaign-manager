@@ -2,6 +2,7 @@ import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from './app';
 import { createMemoryCampaignRepo } from './campaigns/memoryCampaignRepo';
+import { createMemoryShareRepo } from './shares/memoryShareRepo';
 import { createMemoryUserRepo } from './users/memoryUserRepo';
 
 const config = { jwtSecret: 'x'.repeat(32), bcryptRounds: 4, secureCookies: false };
@@ -9,7 +10,7 @@ const credentials = { email: 'Dana@Example.com', password: 'correct horse' };
 
 let app: ReturnType<typeof createApp>;
 beforeEach(() => {
-  app = createApp({ users: createMemoryUserRepo(), campaigns: createMemoryCampaignRepo(), config });
+  app = createApp({ users: createMemoryUserRepo(), campaigns: createMemoryCampaignRepo(), shares: createMemoryShareRepo(), config });
 });
 
 const cookieOf = (res: request.Response): string => {
@@ -91,7 +92,7 @@ describe('auth', () => {
   it('rejects a token signed with another secret', async () => {
     const other = createApp({
       users: createMemoryUserRepo(),
-      campaigns: createMemoryCampaignRepo(),
+      campaigns: createMemoryCampaignRepo(), shares: createMemoryShareRepo(),
       config: { ...config, jwtSecret: 'y'.repeat(32) },
     });
     const registered = await request(other).post('/api/auth/register').send(credentials);

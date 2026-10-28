@@ -8,9 +8,12 @@ import { QuestsPage } from '../features/quests/QuestsPage';
 import { NpcCodexPage } from '../features/npcs/NpcCodexPage';
 import { CharactersPage } from '../features/characters/CharactersPage';
 import { GameSystemPage } from '../features/system/GameSystemPage';
+import { PlayerPage } from '../features/player/PlayerPage';
 
 export const router = createBrowserRouter(
   [
+    // Public: the share-link token is the credential, so this sits outside the login guard.
+    { path: '/play/:token', element: <PlayerPage /> },
     {
       element: <RequireAuth />,
       children: [

@@ -44,6 +44,15 @@ function parseItem(raw: unknown): InventoryItem {
   };
 }
 
+export function parseInventory(raw: unknown): InventoryItem[] {
+  if (!Array.isArray(raw) || raw.length > MAX_ITEMS) return bad(`inventory must be a list of at most ${MAX_ITEMS} items`);
+  return raw.map(parseItem);
+}
+
+export function parsePlayerNotes(raw: unknown): string {
+  return text(raw ?? '', 'playerNotes', 5000);
+}
+
 const MAX_STATS = 100;
 const MAX_REFS = 500;
 
@@ -142,8 +151,7 @@ export function parseCharacter(body: unknown): PlayerCharacter {
 
   const stats = parseStats(body.stats);
 
-  const rawItems = body.inventory ?? [];
-  if (!Array.isArray(rawItems) || rawItems.length > MAX_ITEMS) return bad(`inventory must be a list of at most ${MAX_ITEMS} items`);
+  const inventory = parseInventory(body.inventory ?? []);
 
   return {
     id: text(body.id, 'id', 100, { required: true }),
@@ -154,8 +162,9 @@ export function parseCharacter(body: unknown): PlayerCharacter {
     classId: optionalId(body.classId, 'classId'),
     characterClass: text(body.characterClass ?? '', 'characterClass', 80),
     notes: text(body.notes ?? '', 'notes', 5000),
+    playerNotes: body.playerNotes === undefined ? undefined : parsePlayerNotes(body.playerNotes),
     stats,
-    inventory: rawItems.map(parseItem),
+    inventory,
   };
 }
 
