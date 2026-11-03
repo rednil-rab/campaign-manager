@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Dialog } from '../../components/Dialog';
+import { SecrecyFields } from '../../components/SecrecyFields';
 import { DomainError } from '@questkeeper/domain';
 import type { Campaign, Id, Npc, Quest, QuestStatus } from '@questkeeper/domain';
 import { NpcForm } from '../npcs/NpcForm';
@@ -21,6 +22,8 @@ export function QuestForm({ campaign, initial, onSave, onCreateNpc, onCancel }: 
   const [description, setDescription] = useState(initial?.description ?? '');
   const [giverNpcId, setGiverNpcId] = useState<Id>(initial?.giverNpcId ?? '');
   const [prereqs, setPrereqs] = useState<Id[]>(initial?.prerequisiteQuestIds ?? []);
+  const [known, setKnown] = useState(initial?.knownToPlayers ?? false);
+  const [secret, setSecret] = useState(initial?.secret ?? '');
   const [creatingNpc, setCreatingNpc] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -54,6 +57,8 @@ export function QuestForm({ campaign, initial, onSave, onCreateNpc, onCancel }: 
         description: description.trim(),
         giverNpcId: giverNpcId || undefined,
         prerequisiteQuestIds: prereqs,
+        knownToPlayers: known,
+        secret: secret.trim() || undefined,
       });
     } catch (err) {
       if (err instanceof DomainError) setError(err.message);
@@ -106,6 +111,7 @@ export function QuestForm({ campaign, initial, onSave, onCreateNpc, onCancel }: 
             </label>
           ))}
         </fieldset>
+        <SecrecyFields known={known} secret={secret} onKnownChange={setKnown} onSecretChange={setSecret} />
         {error && (
           <p className="error" role="alert">
             {error}

@@ -63,6 +63,10 @@ export interface Quest {
   giverNpcId?: Id;
   /** Quests that must be resolved before this one opens up. */
   prerequisiteQuestIds: Id[];
+  /** Players only learn about a quest once it is revealed; unset means hidden. */
+  knownToPlayers?: boolean;
+  /** DM-only truth behind the quest. Never part of anything shown to players. */
+  secret?: string;
 }
 
 export interface Npc {
@@ -74,6 +78,26 @@ export interface Npc {
   description: string;
   /** Optional: most NPCs never need stats. */
   stats?: Stats;
+  /** Players only learn about an NPC once revealed; unset means hidden. */
+  knownToPlayers?: boolean;
+  /** DM-only truth about the NPC. Never part of anything shown to players. */
+  secret?: string;
+}
+
+export type GameEventKind = 'narration' | 'action' | 'roll' | 'note' | 'reveal' | 'change';
+export type GameEventSource = 'player' | 'agent' | 'dm';
+
+/** One entry in the campaign's game log. `dm` entries are never shown to players. */
+export interface GameEvent {
+  id: Id;
+  /** ISO timestamp. */
+  at: string;
+  kind: GameEventKind;
+  text: string;
+  visibility: 'table' | 'dm';
+  source: GameEventSource;
+  sessionId?: Id;
+  characterId?: Id;
 }
 
 export interface Campaign {
@@ -89,4 +113,6 @@ export interface Campaign {
   quests: Quest[];
   npcs: Npc[];
   characters: PlayerCharacter[];
+  /** Append-only game log, oldest first. Absent in campaigns saved before it existed. */
+  events?: GameEvent[];
 }

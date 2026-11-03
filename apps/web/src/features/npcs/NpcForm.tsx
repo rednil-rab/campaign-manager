@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { DomainError } from '@questkeeper/domain';
+import { SecrecyFields } from '../../components/SecrecyFields';
 import type { Campaign, Npc, NpcDisposition } from '@questkeeper/domain';
 import { StatsFields } from '../characters/StatsFields';
 import { fromDraft, toDraft } from '../characters/statsDraft';
@@ -20,6 +21,8 @@ export function NpcForm({ campaign, initial, onSave, onCancel }: NpcFormProps) {
   const [disposition, setDisposition] = useState<NpcDisposition>(initial?.disposition ?? 'unknown');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [stats, setStats] = useState(() => toDraft(initial?.stats));
+  const [known, setKnown] = useState(initial?.knownToPlayers ?? false);
+  const [secret, setSecret] = useState(initial?.secret ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -38,6 +41,8 @@ export function NpcForm({ campaign, initial, onSave, onCancel }: NpcFormProps) {
         disposition,
         description: description.trim(),
         stats: Object.keys(values).length ? values : undefined,
+        knownToPlayers: known,
+        secret: secret.trim() || undefined,
       });
     } catch (err) {
       if (err instanceof DomainError) setError(err.message);
@@ -80,6 +85,7 @@ export function NpcForm({ campaign, initial, onSave, onCancel }: NpcFormProps) {
         <textarea className="input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
       </label>
       <StatsFields definitions={campaign.statDefinitions} value={stats} onChange={setStats} />
+      <SecrecyFields known={known} secret={secret} onKnownChange={setKnown} onSecretChange={setSecret} />
       {error && (
         <p className="error" role="alert">
           {error}

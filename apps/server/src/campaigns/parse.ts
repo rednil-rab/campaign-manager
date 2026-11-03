@@ -98,7 +98,15 @@ export function parseQuest(body: unknown): Quest {
     description: text(body.description ?? '', 'description', 5000),
     giverNpcId: optionalId(body.giverNpcId, 'giverNpcId'),
     prerequisiteQuestIds: parseIdList(body.prerequisiteQuestIds, 'prerequisiteQuestIds'),
+    ...parseSecrecy(body),
   };
+}
+
+function parseSecrecy(body: Record<string, unknown>): { knownToPlayers?: boolean; secret?: string } {
+  const known = body.knownToPlayers;
+  if (known !== undefined && typeof known !== 'boolean') return bad('knownToPlayers must be true or false');
+  const secret = body.secret === undefined || body.secret === null ? undefined : text(body.secret, 'secret', 5000);
+  return { ...(known === undefined ? {} : { knownToPlayers: known }), ...(secret ? { secret } : {}) };
 }
 
 export function parseNpc(body: unknown): Npc {
@@ -112,6 +120,7 @@ export function parseNpc(body: unknown): Npc {
     disposition: oneOf(body.disposition, 'disposition', DISPOSITIONS),
     description: text(body.description ?? '', 'description', 5000),
     ...(stats ? { stats } : {}),
+    ...parseSecrecy(body),
   };
 }
 
