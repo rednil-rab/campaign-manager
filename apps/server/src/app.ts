@@ -1,6 +1,7 @@
 import path from 'node:path';
 import cookieParser from 'cookie-parser';
 import express, { type ErrorRequestHandler } from 'express';
+import { agentRouter } from './agent/routes';
 import { authRouter } from './auth/routes';
 import { campaignsRouter } from './campaigns/routes';
 import type { CampaignRepo } from './campaigns/types';
@@ -47,6 +48,7 @@ export function createApp({ users, campaigns, shares, config, webDir }: AppDeps)
   app.use('/api/auth', authRouter(users, config));
   app.use('/api/campaigns', campaignsRouter(campaigns, shares, config));
   app.use('/api/play', playRouter(campaigns, shares));
+  app.use('/api/agent/v1', agentRouter(campaigns, config));
   app.use('/api', (_req, _res) => {
     throw new HttpError(404, 'Not found');
   });

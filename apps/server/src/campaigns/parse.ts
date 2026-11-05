@@ -12,13 +12,13 @@ import type {
 } from '@questkeeper/domain';
 import { HttpError } from '../errors';
 
-const bad = (message: string): never => {
+export const bad = (message: string): never => {
   throw new HttpError(400, message);
 };
 
-const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+export const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 
-function text(v: unknown, field: string, max: number, { required = false } = {}): string {
+export function text(v: unknown, field: string, max: number, { required = false } = {}): string {
   if (typeof v !== 'string') return bad(`${field} must be a string`);
   const trimmed = v.trim();
   if (required && !trimmed) return bad(`${field} is required`);
@@ -26,7 +26,7 @@ function text(v: unknown, field: string, max: number, { required = false } = {})
   return v;
 }
 
-function optionalId(v: unknown, field: string): string | undefined {
+export function optionalId(v: unknown, field: string): string | undefined {
   if (v === undefined || v === null) return undefined;
   return text(v, field, 100, { required: true });
 }
@@ -75,15 +75,15 @@ function parseIdList(raw: unknown, field: string): string[] {
   return value.map((id) => text(id, field, 100, { required: true }));
 }
 
-function oneOf<T extends string>(v: unknown, field: string, allowed: readonly T[]): T {
+export function oneOf<T extends string>(v: unknown, field: string, allowed: readonly T[]): T {
   if (typeof v !== 'string' || !(allowed as readonly string[]).includes(v)) {
     return bad(`${field} must be one of: ${allowed.join(', ')}`);
   }
   return v as T;
 }
 
-const QUEST_STATUSES: readonly QuestStatus[] = ['active', 'dormant', 'completed', 'failed'];
-const DISPOSITIONS: readonly NpcDisposition[] = ['ally', 'neutral', 'hostile', 'unknown'];
+export const QUEST_STATUSES: readonly QuestStatus[] = ['active', 'dormant', 'completed', 'failed'];
+export const DISPOSITIONS: readonly NpcDisposition[] = ['ally', 'neutral', 'hostile', 'unknown'];
 
 /**
  * Each parser validates the shape of untrusted input and copies only known fields.

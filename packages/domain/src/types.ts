@@ -100,6 +100,26 @@ export interface GameEvent {
   characterId?: Id;
 }
 
+/** A bounded change the game-running agent may ask for. Item changes always target the acting character. */
+export type AgentChange =
+  | { action: 'add_item'; itemId: Id; name: string; quantity: number; notes: string }
+  | { action: 'remove_item'; itemId: Id }
+  | { action: 'set_item_quantity'; itemId: Id; quantity: number }
+  | { action: 'set_quest_status'; questId: Id; status: QuestStatus }
+  | { action: 'set_npc_disposition'; npcId: Id; disposition: NpcDisposition }
+  | { action: 'reveal'; type: 'npc' | 'quest'; id: Id }
+  | { action: 'add_session_note'; sessionId: Id; text: string };
+
+/** A change held for the DM to approve or reject. */
+export interface PendingChange {
+  id: Id;
+  at: string;
+  change: AgentChange;
+  /** The character the change was made for, when it is about an inventory. */
+  characterId?: Id;
+  description: string;
+}
+
 export interface Campaign {
   id: Id;
   name: string;
@@ -115,4 +135,6 @@ export interface Campaign {
   characters: PlayerCharacter[];
   /** Append-only game log, oldest first. Absent in campaigns saved before it existed. */
   events?: GameEvent[];
+  /** Agent changes waiting for the DM. Absent in campaigns saved before it existed. */
+  pendingChanges?: PendingChange[];
 }

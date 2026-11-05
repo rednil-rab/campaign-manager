@@ -1,4 +1,5 @@
 import {
+  approvePendingChange,
   ashenCrown,
   deleteCharacter,
   deleteClass,
@@ -8,6 +9,7 @@ import {
   deleteSession,
   deleteStatDefinition,
   emptyCampaign,
+  rejectPendingChange,
   upsertCharacter,
   upsertClass,
   upsertNpc,
@@ -75,6 +77,20 @@ export function campaignsRouter(repo: CampaignRepo, shares: ShareRepo, config: P
     if (!stored) throw new HttpError(404, 'Campaign not found');
     if (!stored.campaign.characters.some((p) => p.id === characterId)) throw new HttpError(404, 'Character not found');
   };
+
+  router.get('/:id/pending', async (req, res) => {
+    const stored = await repo.get(req.userId!, req.params.id);
+    if (!stored) throw new HttpError(404, 'Campaign not found');
+    res.json(stored.campaign.pendingChanges ?? []);
+  });
+
+  router.post('/:id/pending/:changeId/approve', async (req, res) => {
+    res.json(await mutateCampaign(repo, req.userId!, req.params.id, (c) => approvePendingChange(c, req.params.changeId)));
+  });
+
+  router.post('/:id/pending/:changeId/reject', async (req, res) => {
+    res.json(await mutateCampaign(repo, req.userId!, req.params.id, (c) => rejectPendingChange(c, req.params.changeId)));
+  });
 
   router.get('/:id/shares', async (req, res) => {
     if (!(await repo.get(req.userId!, req.params.id))) throw new HttpError(404, 'Campaign not found');

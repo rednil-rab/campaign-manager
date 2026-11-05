@@ -1,7 +1,7 @@
 import { DomainError } from './actions';
 import type { Campaign, GameEvent, Id } from './types';
 
-export const MAX_EVENTS = 500;
+export const MAX_EVENTS = 200;
 export const MAX_EVENT_TEXT = 2000;
 
 /** Adds an entry to the game log, dropping the oldest ones beyond MAX_EVENTS. */

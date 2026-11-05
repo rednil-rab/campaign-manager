@@ -45,6 +45,8 @@ Everything is under `/api`. Accounts use an httpOnly session cookie.
 - `PUT|DELETE /campaigns/:id/<kind>/:entityId`, where `<kind>` is `characters`, `npcs`, `quests`, `sessions`, `stats`, `races` or `classes`. Each returns the updated campaign.
 - `GET /campaigns/:id/shares`, `POST|DELETE /campaigns/:id/characters/:characterId/share`: list, create/regenerate and revoke player links.
 - `GET|PUT /play/:token` (no login): the player's view of one character, and an update of its inventory and player notes. The token is 256 random bits, only that character is reachable, responses are `no-store`/`noindex`, and requests are rate limited per IP. Anyone holding the link can edit, so treat it like a password.
+- `GET /campaigns/:id/pending`, `POST /campaigns/:id/pending/:changeId/approve|reject`: the DM's queue of agent changes that need approval.
+- `/agent/v1/...` (bearer token, for the game-running agent service): `GET /context/player`, `GET /context/dm`, `POST /events`, `POST /roll`, `POST /changes`. Tokens are minted by the server per turn, last 5 minutes, and are bound to one campaign (and one character for player turns). They are signed with a derived key, so they cannot be used as a session cookie. The contract is in the agent repo.
 
 Each campaign is one MongoDB document with a version number. The server loads it, applies a domain function from `@questkeeper/domain`, and saves it only if nobody changed it in between (it retries, then answers 409). Input is validated and copied field by field, and every query is scoped to the signed-in owner.
 

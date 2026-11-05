@@ -1,5 +1,42 @@
+import { tableEvents } from './gameLog';
 import { classLabel, raceLabel, statsFor } from './selectors';
-import type { Campaign, Id, InventoryItem } from './types';
+import type { Campaign, GameEvent, Id, InventoryItem, NpcDisposition, QuestStatus } from './types';
+
+/** What the agent may use when narrating to players: their own sheet plus only what has been revealed. */
+export interface PlayerContext extends PlayerView {
+  setting: string;
+  tagline: string;
+  npcs: { id: Id; name: string; role: string; location: string; disposition: NpcDisposition; description: string }[];
+  quests: { id: Id; title: string; status: QuestStatus; description: string }[];
+  events: GameEvent[];
+}
+
+export const PLAYER_CONTEXT_EVENTS = 30;
+
+export function playerContext(c: Campaign, characterId: Id): PlayerContext | undefined {
+  const view = playerView(c, characterId);
+  if (!view) return undefined;
+  return {
+    ...view,
+    setting: c.setting,
+    tagline: c.tagline,
+    // Built field by field: secrets and unrevealed records never get in.
+    npcs: c.npcs
+      .filter((n) => n.knownToPlayers)
+      .map((n) => ({
+        id: n.id,
+        name: n.name,
+        role: n.role,
+        location: n.location,
+        disposition: n.disposition,
+        description: n.description,
+      })),
+    quests: c.quests
+      .filter((q) => q.knownToPlayers)
+      .map((q) => ({ id: q.id, title: q.title, status: q.status, description: q.description })),
+    events: tableEvents(c).slice(-PLAYER_CONTEXT_EVENTS),
+  };
+}
 
 /**
  * Everything a player may see through their share link. It is built field by field,
