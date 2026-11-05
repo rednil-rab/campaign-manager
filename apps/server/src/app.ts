@@ -6,6 +6,7 @@ import { authRouter } from './auth/routes';
 import { campaignsRouter } from './campaigns/routes';
 import type { CampaignRepo } from './campaigns/types';
 import type { Config } from './config';
+import { devRouter, docsRouter } from './devRoutes';
 import { HttpError } from './errors';
 import { playRouter } from './shares/playRoutes';
 import type { ShareRepo } from './shares/types';
@@ -18,6 +19,8 @@ export interface AppDeps {
   config: Pick<Config, 'jwtSecret' | 'bcryptRounds' | 'secureCookies'>;
   /** Directory with the built web app. When set, it is served with a single-page-app fallback. */
   webDir?: string;
+  /** Serves /api/dev/agent-token. Never enable in production. */
+  devTools?: boolean;
 }
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
@@ -34,7 +37,7 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   res.status(500).json({ error: 'Internal server error' });
 };
 
-export function createApp({ users, campaigns, shares, config, webDir }: AppDeps) {
+export function createApp({ users, campaigns, shares, config, webDir, devTools }: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
   // Behind the host's proxy, so req.secure and client addresses are correct.
@@ -49,6 +52,8 @@ export function createApp({ users, campaigns, shares, config, webDir }: AppDeps)
   app.use('/api/campaigns', campaignsRouter(campaigns, shares, config));
   app.use('/api/play', playRouter(campaigns, shares));
   app.use('/api/agent/v1', agentRouter(campaigns, config));
+  app.use('/api', docsRouter());
+  if (devTools) app.use('/api', devRouter(campaigns, config));
   app.use('/api', (_req, _res) => {
     throw new HttpError(404, 'Not found');
   });

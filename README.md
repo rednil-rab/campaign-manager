@@ -48,6 +48,8 @@ Everything is under `/api`. Accounts use an httpOnly session cookie.
 - `GET /campaigns/:id/pending`, `POST /campaigns/:id/pending/:changeId/approve|reject`: the DM's queue of agent changes that need approval.
 - `/agent/v1/...` (bearer token, for the game-running agent service): `GET /context/player`, `GET /context/dm`, `POST /events`, `POST /roll`, `POST /changes`. Tokens are minted by the server per turn, last 5 minutes, and are bound to one campaign (and one character for player turns). They are signed with a derived key, so they cannot be used as a session cookie. The contract is in the agent repo.
 
+**API docs:** `/api/docs` serves Swagger UI (loaded from a CDN) for an OpenAPI spec kept in `apps/server/src/docs.ts`; it is public, also in production. In Postman, import `/api/docs/openapi.json`. Sign in with `/auth/login` and the session cookie is sent automatically. To try the agent endpoints locally, call `POST /api/dev/agent-token` (it mints a token for one of your campaigns; it exists only when `NODE_ENV` is not `production`), press Authorize and paste the token. Restart the server to pick up code changes.
+
 Each campaign is one MongoDB document with a version number. The server loads it, applies a domain function from `@questkeeper/domain`, and saves it only if nobody changed it in between (it retries, then answers 409). Input is validated and copied field by field, and every query is scoped to the signed-in owner.
 
 ## Development commands

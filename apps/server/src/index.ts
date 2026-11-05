@@ -24,6 +24,7 @@ const app = createApp({
   shares: await createMongoShareRepo(db),
   config,
   webDir: serveWeb ? webDir : undefined,
+  devTools: process.env.NODE_ENV !== 'production',
 });
 const server = app.listen(config.port, () => {
   console.log(`Questkeeper listening on http://localhost:${config.port}${serveWeb ? '' : ' (API only)'}`);
