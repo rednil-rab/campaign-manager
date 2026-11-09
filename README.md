@@ -61,6 +61,8 @@ npm test            # Run the test suite (no database needed)
 npm run build       # Type-check and build the web app
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the pull request workflow and pre-merge checks.
+
 ## Tech stack
 
 - React 18, TypeScript, Vite, React Router, Zustand
