@@ -5,6 +5,7 @@ import { agentRouter } from './agent/routes';
 import { authRouter } from './auth/routes';
 import { campaignsRouter } from './campaigns/routes';
 import type { CampaignRepo } from './campaigns/types';
+import { createCampaignUpdateHub } from './campaigns/updates';
 import type { Config } from './config';
 import { devRouter, docsRouter } from './devRoutes';
 import { HttpError } from './errors';
@@ -44,14 +45,15 @@ export function createApp({ users, campaigns, shares, config, webDir, devTools }
   app.set('trust proxy', 1);
   app.use(express.json());
   app.use(cookieParser());
+  const updates = createCampaignUpdateHub();
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true });
   });
   app.use('/api/auth', authRouter(users, config));
-  app.use('/api/campaigns', campaignsRouter(campaigns, shares, config));
-  app.use('/api/play', playRouter(campaigns, shares));
-  app.use('/api/agent/v1', agentRouter(campaigns, config));
+  app.use('/api/campaigns', campaignsRouter(campaigns, shares, config, updates));
+  app.use('/api/play', playRouter(campaigns, shares, updates));
+  app.use('/api/agent/v1', agentRouter(campaigns, config, updates));
   app.use('/api', docsRouter());
   if (devTools) app.use('/api', devRouter(campaigns, config));
   app.use('/api', (_req, _res) => {

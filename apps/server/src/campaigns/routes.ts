@@ -36,10 +36,16 @@ import { mutateCampaign } from './service';
 import type { CampaignRepo } from './types';
 import type { ShareRepo } from '../shares/types';
 import { newShareToken } from '../shares/token';
+import type { CampaignUpdateHub } from './updates';
 
 const MAX_CAMPAIGNS_PER_USER = 50;
 
-export function campaignsRouter(repo: CampaignRepo, shares: ShareRepo, config: Pick<Config, 'jwtSecret'>) {
+export function campaignsRouter(
+  repo: CampaignRepo,
+  shares: ShareRepo,
+  config: Pick<Config, 'jwtSecret'>,
+  updates?: CampaignUpdateHub,
+) {
   const router = Router();
   router.use(requireAuth(config.jwtSecret));
 
@@ -63,12 +69,14 @@ export function campaignsRouter(repo: CampaignRepo, shares: ShareRepo, config: P
 
   router.patch('/:id', async (req, res) => {
     const name = parseCampaignName(req.body);
-    res.json(await mutateCampaign(repo, req.userId!, req.params.id, (c) => ({ ...c, name })));
+    res.json(await mutateCampaign(repo, req.userId!, req.params.id, (c) => ({ ...c, name }), updates));
   });
 
   router.delete('/:id', async (req, res) => {
     if (!(await repo.delete(req.userId!, req.params.id))) throw new HttpError(404, 'Campaign not found');
+    for (const link of await shares.listForCampaign(req.userId!, req.params.id)) updates?.revokeToken(link.token);
     await shares.deleteForCampaign(req.userId!, req.params.id);
+    updates?.publishCampaignUpdate(req.params.id);
     res.status(204).end();
   });
 
@@ -85,11 +93,15 @@ export function campaignsRouter(repo: CampaignRepo, shares: ShareRepo, config: P
   });
 
   router.post('/:id/pending/:changeId/approve', async (req, res) => {
-    res.json(await mutateCampaign(repo, req.userId!, req.params.id, (c) => approvePendingChange(c, req.params.changeId)));
+    res.json(
+      await mutateCampaign(repo, req.userId!, req.params.id, (c) => approvePendingChange(c, req.params.changeId), updates),
+    );
   });
 
   router.post('/:id/pending/:changeId/reject', async (req, res) => {
-    res.json(await mutateCampaign(repo, req.userId!, req.params.id, (c) => rejectPendingChange(c, req.params.changeId)));
+    res.json(
+      await mutateCampaign(repo, req.userId!, req.params.id, (c) => rejectPendingChange(c, req.params.changeId), updates),
+    );
   });
 
   router.get('/:id/shares', async (req, res) => {
@@ -102,14 +114,22 @@ export function campaignsRouter(repo: CampaignRepo, shares: ShareRepo, config: P
   router.post('/:id/characters/:characterId/share', async (req, res) => {
     const { id, characterId } = req.params;
     await requireCharacter(req.userId!, id, characterId);
+    const oldLinks = await shares.listForCampaign(req.userId!, id);
     const link = await shares.upsert({ token: newShareToken(), ownerId: req.userId!, campaignId: id, characterId });
+    for (const oldLink of oldLinks) {
+      if (oldLink.characterId === characterId) updates?.revokeToken(oldLink.token);
+    }
     res.status(201).json({ characterId, token: link.token });
   });
 
   router.delete('/:id/characters/:characterId/share', async (req, res) => {
     const { id, characterId } = req.params;
     await requireCharacter(req.userId!, id, characterId);
+    const oldLinks = await shares.listForCampaign(req.userId!, id);
     await shares.deleteForCharacter(req.userId!, id, characterId);
+    for (const oldLink of oldLinks) {
+      if (oldLink.characterId === characterId) updates?.revokeToken(oldLink.token);
+    }
     res.status(204).end();
   });
 
@@ -125,18 +145,22 @@ export function campaignsRouter(repo: CampaignRepo, shares: ShareRepo, config: P
     router.put(`/:id/${kind}/:entityId`, async (req, res) => {
       const item = parse(req.body);
       if (item.id !== req.params.entityId) throw new HttpError(400, 'The id does not match the URL');
-      res.json(await mutateCampaign(repo, req.userId!, req.params.id, (c) => upsert(c, item)));
+      res.json(await mutateCampaign(repo, req.userId!, req.params.id, (c) => upsert(c, item), updates));
     });
     router.delete(`/:id/${kind}/:entityId`, async (req, res) => {
-      const updated = await mutateCampaign(repo, req.userId!, req.params.id, (c) => remove(c, req.params.entityId));
+      const updated = await mutateCampaign(repo, req.userId!, req.params.id, (c) => remove(c, req.params.entityId), updates);
       await afterRemove?.(req.userId!, req.params.id, req.params.entityId);
       res.json(updated);
     });
   };
 
-  entity('characters', parseCharacter, upsertCharacter, deleteCharacter, (ownerId, campaignId, characterId) =>
-    shares.deleteForCharacter(ownerId, campaignId, characterId),
-  );
+  entity('characters', parseCharacter, upsertCharacter, deleteCharacter, async (ownerId, campaignId, characterId) => {
+    const links = await shares.listForCampaign(ownerId, campaignId);
+    await shares.deleteForCharacter(ownerId, campaignId, characterId);
+    for (const link of links) {
+      if (link.characterId === characterId) updates?.revokeToken(link.token);
+    }
+  });
   entity('npcs', parseNpc, upsertNpc, deleteNpc);
   entity('quests', parseQuest, upsertQuest, deleteQuest);
   entity('sessions', parseSession, upsertSession, deleteSession);

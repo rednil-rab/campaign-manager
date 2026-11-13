@@ -132,6 +132,14 @@ export const openApiSpec = {
         responses: { 200: ok(), 400: ok(), 404: ok() },
       },
     },
+    '/play/{token}/events': {
+      get: {
+        tags: ['Player'],
+        summary: 'Subscribe to player-view updates and share-link revocation events using Server-Sent Events',
+        parameters: [idParam('token')],
+        responses: { 200: { description: 'text/event-stream; update events require fetching GET /play/{token}' }, 404: ok() },
+      },
+    },
 
     '/agent/v1/context/player': { get: { tags: ['Agent'], summary: 'What the acting player’s character can see', security: agent, responses: { 200: ok(), 401: ok() } } },
     '/agent/v1/context/dm': { get: { tags: ['Agent'], summary: 'Full campaign (recap and dm_turn tokens only)', security: agent, responses: { 200: ok(), 403: ok('player_action token') } } },

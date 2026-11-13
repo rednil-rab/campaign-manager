@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { DomainError, type PlayerView } from '@questkeeper/domain';
 import { api, ApiError } from '../../api/client';
@@ -14,29 +14,100 @@ export function PlayerPage() {
   const [notes, setNotes] = useState('');
   const [missing, setMissing] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [loadedToken, setLoadedToken] = useState('');
   const [error, setError] = useState('');
+  const [refreshError, setRefreshError] = useState(false);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const draftBaseline = useRef<{ items: ItemDraft[]; notes: string } | null>(null);
+  const itemsDirty = useRef(false);
+  const notesDirty = useRef(false);
 
   const show = (v: PlayerView) => {
     setView(v);
-    setItems(toItemDrafts(v.character.inventory));
+    const nextItems = toItemDrafts(v.character.inventory);
+    setItems(nextItems);
     setNotes(v.character.playerNotes);
+    draftBaseline.current = { items: nextItems, notes: v.character.playerNotes };
+    itemsDirty.current = false;
+    notesDirty.current = false;
+  };
+
+  const changeItems = (next: ItemDraft[]) => {
+    setItems(next);
+    const baseline = draftBaseline.current;
+    itemsDirty.current = !!baseline && JSON.stringify(next) !== JSON.stringify(baseline.items);
+  };
+
+  const changeNotes = (next: string) => {
+    setNotes(next);
+    notesDirty.current = !!draftBaseline.current && next !== draftBaseline.current.notes;
   };
 
   useEffect(() => {
     let cancelled = false;
-    api<PlayerView>('GET', `/play/${encodeURIComponent(token)}`)
-      .then((v) => {
-        if (!cancelled) show(v);
-      })
-      .catch((err: unknown) => {
+    let refreshing = false;
+    let hasLoaded = false;
+    let revoked = false;
+    let source: EventSource | null = null;
+    draftBaseline.current = null;
+    itemsDirty.current = false;
+    notesDirty.current = false;
+    const refresh = async () => {
+      if (cancelled || revoked || refreshing || document.visibilityState === 'hidden') return;
+      refreshing = true;
+      try {
+        const v = await api<PlayerView>('GET', `/play/${encodeURIComponent(token)}`);
+        if (cancelled || revoked) return;
+        const nextItems = toItemDrafts(v.character.inventory);
+        setView(v);
+        if (!itemsDirty.current) setItems(nextItems);
+        if (!notesDirty.current) setNotes(v.character.playerNotes);
+        draftBaseline.current = { items: nextItems, notes: v.character.playerNotes };
+        setMissing(false);
+        setLoadError('');
+        setRefreshError(false);
+        setLoadedToken(token);
+        hasLoaded = true;
+      } catch (err) {
         if (cancelled) return;
-        if (err instanceof ApiError && err.status === 404) setMissing(true);
-        else if (err instanceof DomainError) setLoadError(err.message);
-      });
+        if (err instanceof ApiError && err.status === 404) {
+          revoked = true;
+          setMissing(true);
+          setLoadedToken(token);
+          source?.close();
+        }
+        else if (err instanceof DomainError && draftBaseline.current) setRefreshError(true);
+        else if (err instanceof DomainError) {
+          setLoadError(err.message);
+          setLoadedToken(token);
+        }
+        else throw err;
+      } finally {
+        refreshing = false;
+      }
+    };
+    source = new EventSource(`/api/play/${encodeURIComponent(token)}/events`);
+    source.addEventListener('update', () => void refresh());
+    source.addEventListener('revoked', () => {
+      revoked = true;
+      setMissing(true);
+      setLoadedToken(token);
+      source?.close();
+    });
+    source.onopen = () => setRefreshError(false);
+    source.onerror = () => {
+      if (hasLoaded) setRefreshError(true);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    void refresh();
     return () => {
       cancelled = true;
+      source?.close();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [token]);
 
@@ -60,7 +131,7 @@ export function PlayerPage() {
     }
   };
 
-  if (missing) {
+  if (loadedToken === token && missing) {
     return (
       <div className="picker">
         <h1 className="page-title">Questkeeper</h1>
@@ -70,7 +141,7 @@ export function PlayerPage() {
       </div>
     );
   }
-  if (loadError) {
+  if (loadedToken === token && loadError) {
     return (
       <div className="picker">
         <h1 className="page-title">Questkeeper</h1>
@@ -80,7 +151,7 @@ export function PlayerPage() {
       </div>
     );
   }
-  if (!view) {
+  if (loadedToken !== token || !view) {
     return (
       <div className="picker">
         <p className="muted">Loading…</p>
@@ -113,7 +184,7 @@ export function PlayerPage() {
       </Panel>
       <Panel title="Your inventory and notes">
         <form className="form" onSubmit={submit}>
-          <InventoryFields value={items} onChange={setItems} />
+          <InventoryFields value={items} onChange={changeItems} />
           <label className="field">
             Your notes
             <textarea
@@ -121,7 +192,7 @@ export function PlayerPage() {
               rows={6}
               maxLength={5000}
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={(e) => changeNotes(e.target.value)}
             />
           </label>
           {error && (
@@ -130,6 +201,11 @@ export function PlayerPage() {
             </p>
           )}
           {saved && <p role="status">Saved.</p>}
+          {refreshError && (
+            <p className="muted" role="status">
+              Live updates are temporarily unavailable. Retrying…
+            </p>
+          )}
           <div className="form-row">
             <button className="button" type="submit" disabled={busy}>
               Save

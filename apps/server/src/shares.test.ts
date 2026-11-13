@@ -80,6 +80,55 @@ describe('share links', () => {
     expect(res.headers['x-robots-tag']).toBe('noindex');
   });
 
+  it('streams campaign updates and share revocation to the shared player page', async () => {
+    const { cookie, id, token } = await setup();
+    const server = app.listen(0);
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('listening', resolve);
+        server.once('error', reject);
+      });
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Test server did not start');
+      const response = await fetch(`http://127.0.0.1:${address.port}/api/play/${token}/events`);
+      expect(response.headers.get('content-type')).toContain('text/event-stream');
+      if (!response.body) throw new Error('SSE response has no body');
+      reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const nextEvent = async () => {
+        while (true) {
+          const end = buffer.indexOf('\n\n');
+          if (end >= 0) {
+            const event = buffer.slice(0, end);
+            buffer = buffer.slice(end + 2);
+            if (event.startsWith('event:')) return event;
+            continue;
+          }
+          const chunk = await reader!.read();
+          if (chunk.done) throw new Error('SSE stream ended unexpectedly');
+          buffer += decoder.decode(chunk.value, { stream: true });
+        }
+      };
+
+      expect(await nextEvent()).toContain('event: update');
+      const current = (await request(app).get('/api/campaigns').set('Cookie', cookie)).body[0].characters[0];
+      await request(app)
+        .put(`/api/campaigns/${id}/characters/pc-1`)
+        .set('Cookie', cookie)
+        .send({ ...current, name: 'Aria II' })
+        .expect(200);
+      expect(await nextEvent()).toContain('event: update');
+
+      await request(app).delete(`/api/campaigns/${id}/characters/pc-1/share`).set('Cookie', cookie).expect(204);
+      expect(await nextEvent()).toContain('event: revoked');
+    } finally {
+      await reader?.cancel();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it('rejects malformed and unknown tokens', async () => {
     await setup();
     expect((await request(app).get('/api/play/short')).status).toBe(404);

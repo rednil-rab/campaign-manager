@@ -14,6 +14,7 @@ import {
 import { Router } from 'express';
 import { mutateCampaign } from '../campaigns/service';
 import type { CampaignRepo } from '../campaigns/types';
+import type { CampaignUpdateHub } from '../campaigns/updates';
 import type { Config } from '../config';
 import { HttpError } from '../errors';
 import { parseAgentChange, parseAgentEvent, parseRollRequest } from './parse';
@@ -24,7 +25,11 @@ type ChangeResult = { status: 'applied' | 'pending_approval' | 'rejected'; reaso
 const ITEM_ACTIONS: AgentChange['action'][] = ['add_item', 'remove_item', 'set_item_quantity'];
 
 /** What the game-running agent calls back into. Every call is scoped by the short-lived token. */
-export function agentRouter(campaigns: CampaignRepo, config: Pick<Config, 'jwtSecret'>) {
+export function agentRouter(
+  campaigns: CampaignRepo,
+  config: Pick<Config, 'jwtSecret'>,
+  updates?: CampaignUpdateHub,
+) {
   const router = Router();
   router.use(requireAgentToken(config.jwtSecret));
   router.use((_req, res, next) => {
@@ -67,6 +72,7 @@ export function agentRouter(campaigns: CampaignRepo, config: Pick<Config, 'jwtSe
         sessionId: e.sessionId,
         characterId: g.characterId,
       }),
+      updates,
     );
     res.status(201).json({ ok: true });
   });
@@ -96,7 +102,7 @@ export function agentRouter(campaigns: CampaignRepo, config: Pick<Config, 'jwtSe
         source: 'agent',
         characterId: g.characterId,
       });
-    });
+    }, updates);
     // A retried request gets the original result back instead of a new roll.
     if (existing) res.json({ repeated: true, text: existing });
     else res.json({ repeated: false, total: roll.total, rolls: roll.rolls, modifier: roll.modifier, text });
@@ -134,7 +140,7 @@ export function agentRouter(campaigns: CampaignRepo, config: Pick<Config, 'jwtSe
         }
         throw err;
       }
-    });
+    }, updates);
 
     res.json({ id, action: change.action, ...result });
   });

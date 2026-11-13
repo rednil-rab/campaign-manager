@@ -2,6 +2,7 @@ import { DomainError, type Campaign } from '@questkeeper/domain';
 import { HttpError } from '../errors';
 import { assertCampaignSize } from './parse';
 import type { CampaignRepo } from './types';
+import type { CampaignUpdateHub } from './updates';
 
 const MAX_ATTEMPTS = 3;
 
@@ -15,6 +16,7 @@ export async function mutateCampaign(
   ownerId: string,
   id: string,
   fn: (campaign: Campaign) => Campaign,
+  updates?: CampaignUpdateHub,
 ): Promise<Campaign> {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const stored = await repo.get(ownerId, id);
@@ -32,7 +34,10 @@ export async function mutateCampaign(
     assertCampaignSize(next);
 
     const saved = await repo.replace(ownerId, id, stored.version, next);
-    if (saved) return saved.campaign;
+    if (saved) {
+      updates?.publishCampaignUpdate(id);
+      return saved.campaign;
+    }
   }
   throw new HttpError(409, 'The campaign was changed by another request, please try again');
 }
