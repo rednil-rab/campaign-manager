@@ -1,4 +1,4 @@
-import { playerView, updateCharacterByPlayer } from '@questkeeper/domain';
+import { playerPage, playerView, updateCharacterByPlayer } from '@questkeeper/domain';
 import { Router } from 'express';
 import { parseInventory, parsePlayerNotes } from '../campaigns/parse';
 import { mutateCampaign } from '../campaigns/service';
@@ -32,7 +32,7 @@ export function playRouter(campaigns: CampaignRepo, shares: ShareRepo, updates?:
   router.get('/:token', async (req, res) => {
     const link = await resolve(req.params.token);
     const stored = await campaigns.get(link.ownerId, link.campaignId);
-    const view = stored && playerView(stored.campaign, link.characterId);
+    const view = stored && playerPage(stored.campaign, link.characterId);
     if (!view) throw notFound();
     res.json(view);
   });
@@ -76,7 +76,7 @@ export function playRouter(campaigns: CampaignRepo, shares: ShareRepo, updates?:
       updateCharacterByPlayer(c, link.characterId, { inventory, playerNotes }),
       updates,
     );
-    const view = playerView(campaign, link.characterId);
+    const view = playerPage(campaign, link.characterId);
     if (!view) throw notFound();
     res.json(view);
   });
