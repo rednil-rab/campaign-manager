@@ -203,52 +203,52 @@ export function PlayerPage() {
       </div>
       {/* Both panels stay mounted so unsaved inventory and notes survive switching tabs. */}
       <div id="panel-character" role="tabpanel" aria-labelledby="tab-character" hidden={tab !== 'character'}>
-      <Panel title="Character">
-        <p>
-          <Tag tone="cyan">{[character.race, character.characterClass].filter(Boolean).join(' ') || 'Adventurer'}</Tag>
-        </p>
-        {character.stats.length > 0 && (
-          <dl className="abilities">
-            {character.stats.map((s) => (
-              <div key={s.id} className="abilities__item">
-                <dt>{s.name}</dt>
-                <dd>{s.value}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </Panel>
-      <Panel title="Your inventory and notes">
-        <form className="form" onSubmit={submit}>
-          <InventoryFields value={items} onChange={changeItems} />
-          <label className="field">
-            Your notes
-            <textarea
-              className="input"
-              rows={6}
-              maxLength={5000}
-              value={notes}
-              onChange={(e) => changeNotes(e.target.value)}
-            />
-          </label>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
+        <Panel title="Character">
+          <p>
+            <Tag tone="cyan">{[character.race, character.characterClass].filter(Boolean).join(' ') || 'Adventurer'}</Tag>
+          </p>
+          {character.stats.length > 0 && (
+            <dl className="abilities">
+              {character.stats.map((s) => (
+                <div key={s.id} className="abilities__item">
+                  <dt>{s.name}</dt>
+                  <dd>{s.value}</dd>
+                </div>
+              ))}
+            </dl>
           )}
-          {saved && <p role="status">Saved.</p>}
-          {refreshError && (
-            <p className="muted" role="status">
-              Live updates are temporarily unavailable. Retrying…
-            </p>
-          )}
-          <div className="form-row">
-            <button className="button" type="submit" disabled={busy}>
-              Save
-            </button>
-          </div>
-        </form>
-      </Panel>
+        </Panel>
+        <Panel title="Your inventory and notes">
+          <form className="form" onSubmit={submit}>
+            <InventoryFields value={items} onChange={changeItems} />
+            <label className="field">
+              Your notes
+              <textarea
+                className="input"
+                rows={6}
+                maxLength={5000}
+                value={notes}
+                onChange={(e) => changeNotes(e.target.value)}
+              />
+            </label>
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            {saved && <p role="status">Saved.</p>}
+            {refreshError && (
+              <p className="muted" role="status">
+                Live updates are temporarily unavailable. Retrying…
+              </p>
+            )}
+            <div className="form-row">
+              <button className="button" type="submit" disabled={busy}>
+                Save
+              </button>
+            </div>
+          </form>
+        </Panel>
       </div>
       <div id="panel-journal" role="tabpanel" aria-labelledby="tab-journal" hidden={tab !== 'journal'}>
         <JournalView quests={view.quests ?? []} npcs={view.npcs ?? []} />
