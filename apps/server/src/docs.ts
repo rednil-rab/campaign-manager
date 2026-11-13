@@ -123,10 +123,10 @@ export const openApiSpec = {
     },
 
     '/play/{token}': {
-      get: { tags: ['Player'], summary: 'A player’s own sheet (no sign-in; the token is the credential)', parameters: [idParam('token')], responses: { 200: ok(), 404: ok() } },
+      get: { tags: ['Player'], summary: 'A player’s own sheet plus the quests and NPCs the DM has revealed (no sign-in; the token is the credential)', parameters: [idParam('token')], responses: { 200: ok(), 404: ok() } },
       put: {
         tags: ['Player'],
-        summary: 'Update the player’s inventory and notes',
+        summary: 'Update the player’s inventory and notes; returns the same view as GET',
         parameters: [idParam('token')],
         requestBody: { required: true, ...json({ ...obj, properties: { inventory: { type: 'array', items: obj }, playerNotes: str } }) },
         responses: { 200: ok(), 400: ok(), 404: ok() },

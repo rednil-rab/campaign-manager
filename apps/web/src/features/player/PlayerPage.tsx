@@ -1,15 +1,23 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { DomainError, type PlayerView } from '@questkeeper/domain';
+import { DomainError, type PlayerPage as PlayerPageData } from '@questkeeper/domain';
 import { api, ApiError } from '../../api/client';
 import { Panel, Tag } from '../../components/Panel';
 import { InventoryFields } from '../characters/InventoryFields';
 import { fromItemDrafts, toItemDrafts, type ItemDraft } from '../characters/inventoryDraft';
+import { JournalView } from './JournalView';
+
+type Tab = 'character' | 'journal';
+const TABS: { id: Tab; label: string }[] = [
+  { id: 'character', label: 'Character' },
+  { id: 'journal', label: 'Journal' },
+];
 
 /** Public page opened from a share link; the token in the URL is the only credential. */
 export function PlayerPage() {
   const { token = '' } = useParams();
-  const [view, setView] = useState<PlayerView | null>(null);
+  const [view, setView] = useState<PlayerPageData | null>(null);
+  const [tab, setTab] = useState<Tab>('character');
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [notes, setNotes] = useState('');
   const [missing, setMissing] = useState(false);
@@ -23,7 +31,7 @@ export function PlayerPage() {
   const itemsDirty = useRef(false);
   const notesDirty = useRef(false);
 
-  const show = (v: PlayerView) => {
+  const show = (v: PlayerPageData) => {
     setView(v);
     const nextItems = toItemDrafts(v.character.inventory);
     setItems(nextItems);
@@ -57,7 +65,7 @@ export function PlayerPage() {
       if (cancelled || revoked || refreshing || document.visibilityState === 'hidden') return;
       refreshing = true;
       try {
-        const v = await api<PlayerView>('GET', `/play/${encodeURIComponent(token)}`);
+        const v = await api<PlayerPageData>('GET', `/play/${encodeURIComponent(token)}`);
         if (cancelled || revoked) return;
         const nextItems = toItemDrafts(v.character.inventory);
         setView(v);
@@ -121,7 +129,7 @@ export function PlayerPage() {
       if (inventory.some((i) => !Number.isFinite(i.quantity) || i.quantity < 0)) {
         throw new DomainError('Quantities must be numbers of 0 or more');
       }
-      show(await api<PlayerView>('PUT', `/play/${encodeURIComponent(token)}`, { inventory, playerNotes: notes }));
+      show(await api<PlayerPageData>('PUT', `/play/${encodeURIComponent(token)}`, { inventory, playerNotes: notes }));
       setSaved(true);
     } catch (err) {
       if (err instanceof DomainError) setError(err.message);
@@ -129,6 +137,14 @@ export function PlayerPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const onTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const next = TABS[(TABS.findIndex((t) => t.id === tab) + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length];
+    setTab(next.id);
+    document.getElementById(`tab-${next.id}`)?.focus();
   };
 
   if (loadedToken === token && missing) {
@@ -167,52 +183,76 @@ export function PlayerPage() {
         {view.campaignName}
         {character.player && <> · Played by {character.player}</>}
       </p>
-      <Panel title="Character">
-        <p>
-          <Tag tone="cyan">{[character.race, character.characterClass].filter(Boolean).join(' ') || 'Adventurer'}</Tag>
-        </p>
-        {character.stats.length > 0 && (
-          <dl className="abilities">
-            {character.stats.map((s) => (
-              <div key={s.id} className="abilities__item">
-                <dt>{s.name}</dt>
-                <dd>{s.value}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
-      </Panel>
-      <Panel title="Your inventory and notes">
-        <form className="form" onSubmit={submit}>
-          <InventoryFields value={items} onChange={changeItems} />
-          <label className="field">
-            Your notes
-            <textarea
-              className="input"
-              rows={6}
-              maxLength={5000}
-              value={notes}
-              onChange={(e) => changeNotes(e.target.value)}
-            />
-          </label>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
+      <div className="tabs" role="tablist" aria-label="Player page sections">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            id={`tab-${t.id}`}
+            type="button"
+            role="tab"
+            className="tabs__tab"
+            aria-selected={tab === t.id}
+            aria-controls={`panel-${t.id}`}
+            tabIndex={tab === t.id ? 0 : -1}
+            onClick={() => setTab(t.id)}
+            onKeyDown={onTabKeyDown}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {/* Both panels stay mounted so unsaved inventory and notes survive switching tabs. */}
+      <div id="panel-character" role="tabpanel" aria-labelledby="tab-character" hidden={tab !== 'character'}>
+        <Panel title="Character">
+          <p>
+            <Tag tone="cyan">{[character.race, character.characterClass].filter(Boolean).join(' ') || 'Adventurer'}</Tag>
+          </p>
+          {character.stats.length > 0 && (
+            <dl className="abilities">
+              {character.stats.map((s) => (
+                <div key={s.id} className="abilities__item">
+                  <dt>{s.name}</dt>
+                  <dd>{s.value}</dd>
+                </div>
+              ))}
+            </dl>
           )}
-          {saved && <p role="status">Saved.</p>}
-          {refreshError && (
-            <p className="muted" role="status">
-              Live updates are temporarily unavailable. Retrying…
-            </p>
-          )}
-          <div className="form-row">
-            <button className="button" type="submit" disabled={busy}>
-              Save
-            </button>
-          </div>
-        </form>
-      </Panel>
+        </Panel>
+        <Panel title="Your inventory and notes">
+          <form className="form" onSubmit={submit}>
+            <InventoryFields value={items} onChange={changeItems} />
+            <label className="field">
+              Your notes
+              <textarea
+                className="input"
+                rows={6}
+                maxLength={5000}
+                value={notes}
+                onChange={(e) => changeNotes(e.target.value)}
+              />
+            </label>
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            {saved && <p role="status">Saved.</p>}
+            {refreshError && (
+              <p className="muted" role="status">
+                Live updates are temporarily unavailable. Retrying…
+              </p>
+            )}
+            <div className="form-row">
+              <button className="button" type="submit" disabled={busy}>
+                Save
+              </button>
+            </div>
+          </form>
+        </Panel>
+      </div>
+      <div id="panel-journal" role="tabpanel" aria-labelledby="tab-journal" hidden={tab !== 'journal'}>
+        <JournalView quests={view.quests ?? []} npcs={view.npcs ?? []} />
+      </div>
     </div>
   );
 }
