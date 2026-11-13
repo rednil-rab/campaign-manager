@@ -56,6 +56,19 @@ export interface PlayerView {
   };
 }
 
+/** What the player page shows: the sheet plus the quests and NPCs the DM has revealed, nothing else. */
+export interface PlayerPage extends PlayerView {
+  quests: PlayerContext['quests'];
+  npcs: PlayerContext['npcs'];
+}
+
+export function playerPage(c: Campaign, characterId: Id): PlayerPage | undefined {
+  const ctx = playerContext(c, characterId);
+  if (!ctx) return undefined;
+  // Copied field by field so the rest of the agent context (setting, tagline, events) never reaches players.
+  return { campaignName: ctx.campaignName, character: ctx.character, quests: ctx.quests, npcs: ctx.npcs };
+}
+
 export function playerView(c: Campaign, characterId: Id): PlayerView | undefined {
   const p = c.characters.find((x) => x.id === characterId);
   if (!p) return undefined;
