@@ -84,6 +84,8 @@ export interface Npc {
   knownToPlayers?: boolean;
   /** DM-only truth about the NPC. Never part of anything shown to players. */
   secret?: string;
+  /** Set only by the server when the NPC has a portrait; bumps whenever the image changes. */
+  portraitVersion?: number;
 }
 
 export type GameEventKind = 'narration' | 'action' | 'roll' | 'note' | 'reveal' | 'change';
