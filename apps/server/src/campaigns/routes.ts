@@ -160,12 +160,14 @@ export function campaignsRouter(
   entity('characters', parseCharacter, upsertCharacter, deleteCharacter, async (ownerId, campaignId, characterId) => {
     const links = await shares.listForCampaign(ownerId, campaignId);
     await shares.deleteForCharacter(ownerId, campaignId, characterId);
-    await portraits.delete(ownerId, campaignId, characterId);
+    await portraits.delete(ownerId, campaignId, { kind: 'character', id: characterId });
     for (const link of links) {
       if (link.characterId === characterId) updates?.revokeToken(link.token);
     }
   });
-  entity('npcs', parseNpc, upsertNpc, deleteNpc);
+  entity('npcs', parseNpc, upsertNpc, deleteNpc, async (ownerId, campaignId, npcId) => {
+    await portraits.delete(ownerId, campaignId, { kind: 'npc', id: npcId });
+  });
   entity('quests', parseQuest, upsertQuest, deleteQuest);
   entity('sessions', parseSession, upsertSession, deleteSession);
   entity('stats', parseRuleOption, upsertStatDefinition, deleteStatDefinition);

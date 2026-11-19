@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DomainError, updateCharacterByPlayer } from './actions';
 import { ashenCrown } from './ashenCrown';
-import { playerPage, playerView } from './playerView';
+import { playerContext, playerPage, playerView } from './playerView';
 
 const kael = ashenCrown.characters[0];
 const item = (over = {}) => ({ id: 'i-1', name: 'Lantern', quantity: 1, notes: '', ...over });
@@ -110,5 +110,37 @@ describe('playerView portraitVersion', () => {
     expect(view.character.portraitVersion).toBe(3);
     expect(JSON.stringify(view)).not.toContain('DM SECRET');
     expect(playerView(ashenCrown, kael.id)!.character.portraitVersion).toBeUndefined();
+  });
+});
+
+describe('playerPage npc portraitVersion', () => {
+  const [shown, hidden] = ashenCrown.npcs;
+  const campaign = {
+    ...ashenCrown,
+    npcs: ashenCrown.npcs.map((n) => ({
+      ...n,
+      knownToPlayers: n.id === shown.id,
+      portraitVersion: 3,
+      secret: 'NPC SECRET',
+    })),
+  };
+
+  it('gives portraitVersion only to revealed npcs and never mentions a hidden one', () => {
+    const page = playerPage(campaign, kael.id)!;
+    expect(page.npcs.map((n) => [n.id, n.portraitVersion])).toEqual([[shown.id, 3]]);
+    const json = JSON.stringify(page);
+    expect(json).not.toContain(hidden.name);
+    expect(json).not.toContain(hidden.id);
+    expect(json).not.toContain('NPC SECRET');
+  });
+
+  it('omits portraitVersion for a revealed npc without a portrait', () => {
+    const none = { ...campaign, npcs: campaign.npcs.map((n) => ({ ...n, portraitVersion: undefined })) };
+    expect(playerPage(none, kael.id)!.npcs[0].portraitVersion).toBeUndefined();
+  });
+
+  it('keeps portraitVersion out of the agent player context', () => {
+    const ctx = playerContext(campaign, kael.id)!;
+    expect(Object.keys(ctx.npcs[0]).sort()).toEqual(['description', 'disposition', 'id', 'location', 'name', 'role']);
   });
 });

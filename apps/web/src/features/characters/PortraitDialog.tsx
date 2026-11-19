@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { DomainError } from '@questkeeper/domain';
 import { Dialog } from '../../components/Dialog';
-import { generatedToBlob, generatePortrait, type GeneratedPortrait } from '../../api/portraits';
+import { generatedToBlob, generatePortrait, type GeneratedPortrait, type PortraitKind } from '../../api/portraits';
 import { useCampaignStore } from '../../store/campaignStore';
 
 interface PortraitDialogProps {
   campaignId: string;
-  characterId: string;
+  kind: PortraitKind;
+  id: string;
   initialPrompt: string;
   onClose: () => void;
 }
 
 /** Generates a preview from an editable prompt. Nothing is stored until the DM keeps the result. */
-export function PortraitDialog({ campaignId, characterId, initialPrompt, onClose }: PortraitDialogProps) {
+export function PortraitDialog({ campaignId, kind, id, initialPrompt, onClose }: PortraitDialogProps) {
   const setPortrait = useCampaignStore((s) => s.setPortrait);
   const [prompt, setPrompt] = useState(initialPrompt);
   const [preview, setPreview] = useState<GeneratedPortrait | null>(null);
@@ -34,13 +35,13 @@ export function PortraitDialog({ campaignId, characterId, initialPrompt, onClose
 
   const generate = () =>
     run(async () => {
-      setPreview(await generatePortrait(campaignId, characterId, prompt.trim()));
+      setPreview(await generatePortrait(campaignId, kind, id, prompt.trim()));
     });
 
   const keep = () =>
     run(async () => {
       if (!preview) return;
-      await setPortrait(characterId, generatedToBlob(preview));
+      await setPortrait(kind, id, generatedToBlob(preview));
       onClose();
     });
 
@@ -48,7 +49,7 @@ export function PortraitDialog({ campaignId, characterId, initialPrompt, onClose
     <Dialog title="Generate portrait" onClose={onClose}>
       <div className="form">
         <label className="field">
-          Describe the character
+          {kind === 'npcs' ? 'Describe the NPC' : 'Describe the character'}
           <textarea
             className="input"
             rows={3}

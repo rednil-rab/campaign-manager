@@ -60,14 +60,20 @@ export interface PlayerView {
 /** What the player page shows: the sheet plus the quests and NPCs the DM has revealed, nothing else. */
 export interface PlayerPage extends PlayerView {
   quests: PlayerContext['quests'];
-  npcs: PlayerContext['npcs'];
+  /** Revealed NPCs only; `portraitVersion` is present only when the NPC has a portrait. */
+  npcs: (PlayerContext['npcs'][number] & { portraitVersion?: number })[];
 }
 
 export function playerPage(c: Campaign, characterId: Id): PlayerPage | undefined {
   const ctx = playerContext(c, characterId);
   if (!ctx) return undefined;
   // Copied field by field so the rest of the agent context (setting, tagline, events) never reaches players.
-  return { campaignName: ctx.campaignName, character: ctx.character, quests: ctx.quests, npcs: ctx.npcs };
+  // ctx.npcs is already limited to revealed NPCs, so a hidden NPC's portrait version can never be added here.
+  const npcs = ctx.npcs.map((n) => {
+    const portraitVersion = c.npcs.find((x) => x.id === n.id)?.portraitVersion;
+    return portraitVersion === undefined ? n : { ...n, portraitVersion };
+  });
+  return { campaignName: ctx.campaignName, character: ctx.character, quests: ctx.quests, npcs };
 }
 
 export function playerView(c: Campaign, characterId: Id): PlayerView | undefined {

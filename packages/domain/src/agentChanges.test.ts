@@ -159,3 +159,13 @@ describe('playerContext', () => {
     expect(playerContext(c, 'ghost')).toBeUndefined();
   });
 });
+
+describe('agent changes and npc portraitVersion', () => {
+  it('applying a set_npc_disposition change keeps the portraitVersion', () => {
+    const npc = ashenCrown.npcs[0];
+    const withPortrait = { ...ashenCrown, npcs: ashenCrown.npcs.map((n) => (n.id === npc.id ? { ...n, portraitVersion: 6 } : n)) };
+    const next = applyChange(withPortrait, { action: 'set_npc_disposition', npcId: npc.id, disposition: 'hostile' });
+    expect(next.npcs[0].portraitVersion).toBe(6);
+    expect(next.npcs[0].disposition).toBe('hostile');
+  });
+});

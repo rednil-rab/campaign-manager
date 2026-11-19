@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Dialog } from '../../components/Dialog';
 import { Panel, Tag } from '../../components/Panel';
+import { portraitUrl } from '../../api/portraits';
 import { questsForNpc, sessionsForNpc } from '@questkeeper/domain';
 import type { Npc } from '@questkeeper/domain';
 import { useCampaign, useCampaignStore } from '../../store/campaignStore';
@@ -46,6 +47,13 @@ export function NpcCodexPage() {
 
       {campaign.npcs.map((n) => (
         <Panel key={n.id} title={n.name}>
+          {n.portraitVersion !== undefined && (
+            <img
+              className="portrait portrait--card"
+              src={portraitUrl(campaign.id, 'npcs', n.id, n.portraitVersion)}
+              alt={`Portrait of ${n.name}`}
+            />
+          )}
           <p>
             <Tag tone="cyan">{n.disposition}</Tag> {n.role}
             {n.role && n.location && ' · '}
