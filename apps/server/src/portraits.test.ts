@@ -392,3 +392,189 @@ describe('portrait generation and quotas', () => {
     expect((await gen('pc-1')).status).toBe(200);
   });
 });
+
+const npcBody = (id: string, over: Record<string, unknown> = {}) => ({
+  id,
+  name: `NPC ${id}`,
+  role: 'Innkeeper',
+  location: 'Mill',
+  disposition: 'neutral',
+  description: 'Friendly.',
+  ...over,
+});
+
+describe('npc portraits', () => {
+  async function setupNpcs(app: ReturnType<typeof makeApp>, email = 'dm@example.com') {
+    const { cookie, id, url } = await app.setup(email);
+    for (const nid of ['n-1', 'n-2']) {
+      await request(app.app).put(`/api/campaigns/${id}/npcs/${nid}`).set('Cookie', cookie).send(npcBody(nid));
+    }
+    const npcUrl = (nid = 'n-1') => `/api/campaigns/${id}/npcs/${nid}/portrait`;
+    const npcVersion = (campaign: { npcs: { id: string; portraitVersion?: number }[] }, nid = 'n-1') =>
+      campaign.npcs.find((n) => n.id === nid)?.portraitVersion;
+    return { cookie, id, url, npcUrl, npcVersion };
+  }
+
+  it('accepts jpeg, png and webp and records the version on the npc', async () => {
+    const m = makeApp();
+    const { cookie, npcUrl, npcVersion } = await setupNpcs(m);
+    for (const [bytes, type] of [[jpeg, 'image/jpeg'], [png, 'image/png'], [webp, 'image/webp']] as const) {
+      const res = await m.upload(cookie, npcUrl(), bytes, type);
+      expect(res.status).toBe(200);
+      expect(npcVersion(res.body)).toBeGreaterThan(0);
+    }
+  });
+
+  it('rejects a lying content type, svg and oversize images and stores nothing', async () => {
+    const m = makeApp();
+    const { cookie, npcUrl } = await setupNpcs(m);
+    expect((await m.upload(cookie, npcUrl(), svg, 'image/png')).status).toBe(400);
+    expect((await m.upload(cookie, npcUrl(), Buffer.from('<html></html>'), 'image/jpeg')).status).toBe(400);
+    expect((await m.upload(cookie, npcUrl(), Buffer.concat([png, Buffer.alloc(MAX_PORTRAIT_BYTES)]))).status).toBe(413);
+    expect((await request(m.app).get(npcUrl()).set('Cookie', cookie)).status).toBe(404);
+  });
+
+  it('serves the sniffed type with safe headers, replaces and removes', async () => {
+    const m = makeApp();
+    const { cookie, npcUrl, npcVersion } = await setupNpcs(m);
+    const first = npcVersion((await m.upload(cookie, npcUrl(), png)).body)!;
+    const second = npcVersion((await m.upload(cookie, npcUrl(), jpeg, 'image/jpeg')).body)!;
+    expect(second).toBeGreaterThan(first);
+    const res = await request(m.app).get(npcUrl()).set('Cookie', cookie);
+    expect(res.headers['content-type']).toBe('image/jpeg');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['content-security-policy']).toBe("default-src 'none'; sandbox");
+    expect(res.headers['cache-control']).toBe('private, no-cache');
+    const removed = await request(m.app).delete(npcUrl()).set('Cookie', cookie);
+    expect(removed.status).toBe(200);
+    expect(npcVersion(removed.body)).toBeUndefined();
+    expect((await request(m.app).get(npcUrl()).set('Cookie', cookie)).status).toBe(404);
+  });
+
+  it('answers 404 for an unknown npc and 401 without a session', async () => {
+    const m = makeApp({ generator: fakeGenerator() });
+    const { cookie, npcUrl } = await setupNpcs(m);
+    expect((await m.upload(cookie, npcUrl('ghost'), png)).status).toBe(404);
+    expect((await request(m.app).get(npcUrl())).status).toBe(401);
+    expect((await request(m.app).put(npcUrl()).set('Content-Type', 'image/png').send(png)).status).toBe(401);
+    expect((await request(m.app).delete(npcUrl())).status).toBe(401);
+    expect((await request(m.app).post(`${npcUrl()}/generate`).send({ prompt: 'x' })).status).toBe(401);
+  });
+
+  it("never lets another user read, replace, delete or generate for someone's npc", async () => {
+    const m = makeApp({ generator: fakeGenerator() });
+    const { cookie, npcUrl } = await setupNpcs(m);
+    await m.upload(cookie, npcUrl(), png);
+    const other = await m.signUp('other@example.com');
+    expect((await request(m.app).get(npcUrl()).set('Cookie', other)).status).toBe(404);
+    expect((await m.upload(other, npcUrl(), jpeg, 'image/jpeg')).status).toBe(404);
+    expect((await request(m.app).delete(npcUrl()).set('Cookie', other)).status).toBe(404);
+    expect((await request(m.app).post(`${npcUrl()}/generate`).set('Cookie', other).send({ prompt: 'x' })).status).toBe(404);
+    expect((await request(m.app).get(npcUrl()).set('Cookie', cookie)).body).toEqual(png);
+  });
+
+  it('generates a preview without saving, and shares the daily and global caps with characters', async () => {
+    const m = makeApp({ generator: fakeGenerator(), limit: 2, globalLimit: 10 });
+    const { cookie, url, npcUrl } = await setupNpcs(m);
+    const gen = (u: string) => request(m.app).post(`${u}/generate`).set('Cookie', cookie).send({ prompt: 'a baker' });
+    const first = await gen(npcUrl());
+    expect(first.status).toBe(200);
+    expect(Buffer.from(first.body.data, 'base64')).toEqual(webp);
+    expect((await request(m.app).get(npcUrl()).set('Cookie', cookie)).status).toBe(404);
+    expect((await gen(url())).status).toBe(200);
+    expect((await gen(npcUrl())).status).toBe(429);
+  });
+
+  it('validates the prompt, passes refusals through and answers 503 without a key', async () => {
+    const refusing = fakeGenerator(async () => {
+      throw new HttpError(422, 'refused');
+    });
+    const m = makeApp({ generator: refusing });
+    const { cookie, npcUrl } = await setupNpcs(m);
+    const gen = (prompt: unknown) => request(m.app).post(`${npcUrl()}/generate`).set('Cookie', cookie).send({ prompt });
+    expect((await gen('')).status).toBe(400);
+    expect((await gen('x'.repeat(1001))).status).toBe(400);
+    expect((await gen('a baker')).status).toBe(422);
+    const bare = makeApp();
+    const b = await setupNpcs(bare, 'bare@example.com');
+    const res = await request(bare.app).post(`${b.npcUrl()}/generate`).set('Cookie', b.cookie).send({ prompt: 'x' });
+    expect(res.status).toBe(503);
+  });
+
+  it('returns the generation units when the provider fails', async () => {
+    let fail = true;
+    const generator = fakeGenerator(async () => {
+      if (fail) throw new HttpError(502, 'down');
+      return { contentType: 'image/webp', bytes: webp };
+    });
+    const m = makeApp({ generator, limit: 1, globalLimit: 1 });
+    const { cookie, npcUrl } = await setupNpcs(m);
+    const gen = () => request(m.app).post(`${npcUrl()}/generate`).set('Cookie', cookie).send({ prompt: 'x' });
+    expect((await gen()).status).toBe(502);
+    fail = false;
+    expect((await gen()).status).toBe(200);
+  });
+
+  it('shares one quota between characters and npcs, and replacing never counts', async () => {
+    const m = makeApp({ generator: fakeGenerator(), limits: { perCampaign: 1, perOwner: 10 } });
+    const { cookie, url, npcUrl } = await setupNpcs(m);
+    expect((await m.upload(cookie, url('pc-1'), png)).status).toBe(200);
+    const refused = await m.upload(cookie, npcUrl('n-1'), png);
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toMatch(/at most 1 portrait/i);
+    const gen = await request(m.app).post(`${npcUrl('n-1')}/generate`).set('Cookie', cookie).send({ prompt: 'x' });
+    expect(gen.status).toBe(400);
+    expect((await m.upload(cookie, url('pc-1'), jpeg, 'image/jpeg')).status).toBe(200);
+    await request(m.app).delete(url('pc-1')).set('Cookie', cookie);
+    expect((await m.upload(cookie, npcUrl('n-1'), png)).status).toBe(200);
+    expect((await m.upload(cookie, npcUrl('n-1'), jpeg, 'image/jpeg')).status).toBe(200);
+  });
+
+  it('keeps a character and an npc with the same id separate', async () => {
+    const m = makeApp();
+    const { app, cookie, id } = { ...(await setupNpcs(m)), app: m.app };
+    await request(app).put(`/api/campaigns/${id}/npcs/pc-1`).set('Cookie', cookie).send(npcBody('pc-1'));
+    await m.upload(cookie, `/api/campaigns/${id}/characters/pc-1/portrait`, png);
+    await m.upload(cookie, `/api/campaigns/${id}/npcs/pc-1/portrait`, jpeg, 'image/jpeg');
+    expect((await request(app).get(`/api/campaigns/${id}/characters/pc-1/portrait`).set('Cookie', cookie)).body).toEqual(png);
+    expect((await request(app).get(`/api/campaigns/${id}/npcs/pc-1/portrait`).set('Cookie', cookie)).body).toEqual(jpeg);
+    await request(app).delete(`/api/campaigns/${id}/npcs/pc-1/portrait`).set('Cookie', cookie);
+    expect((await request(app).get(`/api/campaigns/${id}/characters/pc-1/portrait`).set('Cookie', cookie)).status).toBe(200);
+  });
+
+  it('ignores a portraitVersion sent by the client when the DM saves the npc', async () => {
+    const m = makeApp();
+    const { cookie, id, npcUrl, npcVersion } = await setupNpcs(m);
+    const real = npcVersion((await m.upload(cookie, npcUrl(), png)).body);
+    const res = await request(m.app)
+      .put(`/api/campaigns/${id}/npcs/n-1`)
+      .set('Cookie', cookie)
+      .send(npcBody('n-1', { portraitVersion: 999, name: 'Renamed' }));
+    expect(npcVersion(res.body)).toBe(real);
+  });
+
+  it('keeps the previous image when saving the campaign fails during a replace', async () => {
+    const m = makeApp();
+    const { cookie, id, npcUrl, npcVersion } = await setupNpcs(m);
+    const version = npcVersion((await m.upload(cookie, npcUrl(), png)).body);
+    m.failing.on = true;
+    expect((await m.upload(cookie, npcUrl(), jpeg, 'image/jpeg')).status).toBe(409);
+    m.failing.on = false;
+    expect((await request(m.app).get(npcUrl()).set('Cookie', cookie)).body).toEqual(png);
+    const campaigns = await request(m.app).get('/api/campaigns').set('Cookie', cookie);
+    expect(npcVersion(campaigns.body.find((c: { id: string }) => c.id === id))).toBe(version);
+  });
+
+  it('removes the portrait when the npc or the campaign is deleted, and a reused id inherits nothing', async () => {
+    const m = makeApp();
+    const { cookie, id, npcUrl } = await setupNpcs(m);
+    await m.upload(cookie, npcUrl('n-1'), png);
+    await m.upload(cookie, npcUrl('n-2'), png);
+    await request(m.app).delete(`/api/campaigns/${id}/npcs/n-1`).set('Cookie', cookie);
+    await request(m.app).put(`/api/campaigns/${id}/npcs/n-1`).set('Cookie', cookie).send(npcBody('n-1'));
+    expect((await request(m.app).get(npcUrl('n-1')).set('Cookie', cookie)).status).toBe(404);
+    expect((await request(m.app).get(npcUrl('n-2')).set('Cookie', cookie)).status).toBe(200);
+    await request(m.app).delete(`/api/campaigns/${id}`).set('Cookie', cookie);
+    expect((await request(m.app).get(npcUrl('n-2')).set('Cookie', cookie)).status).toBe(404);
+  });
+});

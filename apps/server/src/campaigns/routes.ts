@@ -165,7 +165,9 @@ export function campaignsRouter(
       if (link.characterId === characterId) updates?.revokeToken(link.token);
     }
   });
-  entity('npcs', parseNpc, upsertNpc, deleteNpc);
+  entity('npcs', parseNpc, upsertNpc, deleteNpc, async (ownerId, campaignId, npcId) => {
+    await portraits.delete(ownerId, campaignId, { kind: 'npc', id: npcId });
+  });
   entity('quests', parseQuest, upsertQuest, deleteQuest);
   entity('sessions', parseSession, upsertSession, deleteSession);
   entity('stats', parseRuleOption, upsertStatDefinition, deleteStatDefinition);
