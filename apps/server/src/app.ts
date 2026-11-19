@@ -9,6 +9,11 @@ import { createCampaignUpdateHub } from './campaigns/updates';
 import type { Config } from './config';
 import { devRouter, docsRouter } from './devRoutes';
 import { HttpError } from './errors';
+import type { PortraitGenerator } from './portraits/generator';
+import { createMemoryPortraitRepo } from './portraits/memoryPortraitRepo';
+import { createMemoryPortraitUsageRepo } from './portraits/memoryPortraitUsageRepo';
+import { portraitsRouter } from './portraits/routes';
+import type { PortraitRepo, PortraitUsageRepo } from './portraits/types';
 import { playRouter } from './shares/playRoutes';
 import type { ShareRepo } from './shares/types';
 import type { UserRepo } from './users/types';
@@ -17,6 +22,14 @@ export interface AppDeps {
   users: UserRepo;
   campaigns: CampaignRepo;
   shares: ShareRepo;
+  /** Portrait storage; index.ts passes the Mongo one. Defaults to in-memory, which tests rely on. */
+  portraits?: PortraitRepo;
+  portraitUsage?: PortraitUsageRepo;
+  /** Absent when no image provider key is configured; uploads still work. */
+  portraitGenerator?: PortraitGenerator;
+  portraitDailyLimit?: number;
+  portraitGlobalDailyLimit?: number;
+  portraitLimits?: { perCampaign: number; perOwner: number };
   config: Pick<Config, 'jwtSecret' | 'bcryptRounds' | 'secureCookies'>;
   /** Directory with the built web app. When set, it is served with a single-page-app fallback. */
   webDir?: string;
@@ -34,11 +47,28 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     res.status(400).json({ error: 'Invalid JSON' });
     return;
   }
+  if ((err as { type?: string }).type === 'entity.too.large') {
+    res.status(413).json({ error: 'The request body is too large' });
+    return;
+  }
   console.error(err);
   res.status(500).json({ error: 'Internal server error' });
 };
 
-export function createApp({ users, campaigns, shares, config, webDir, devTools }: AppDeps) {
+export function createApp({
+  users,
+  campaigns,
+  shares,
+  portraits = createMemoryPortraitRepo(),
+  portraitUsage = createMemoryPortraitUsageRepo(),
+  portraitGenerator,
+  portraitDailyLimit = 20,
+  portraitGlobalDailyLimit = 100,
+  portraitLimits,
+  config,
+  webDir,
+  devTools,
+}: AppDeps) {
   const app = express();
   app.disable('x-powered-by');
   // Behind the host's proxy, so req.secure and client addresses are correct.
@@ -51,8 +81,22 @@ export function createApp({ users, campaigns, shares, config, webDir, devTools }
     res.json({ ok: true });
   });
   app.use('/api/auth', authRouter(users, config));
-  app.use('/api/campaigns', campaignsRouter(campaigns, shares, config, updates));
-  app.use('/api/play', playRouter(campaigns, shares, updates));
+  app.use('/api/campaigns', campaignsRouter(campaigns, shares, portraits, config, updates));
+  app.use(
+    '/api/campaigns',
+    portraitsRouter({
+      campaigns,
+      portraits,
+      usage: portraitUsage,
+      generator: portraitGenerator,
+      dailyLimit: portraitDailyLimit,
+      globalDailyLimit: portraitGlobalDailyLimit,
+      limits: portraitLimits,
+      config,
+      updates,
+    }),
+  );
+  app.use('/api/play', playRouter(campaigns, shares, portraits, updates));
   app.use('/api/agent/v1', agentRouter(campaigns, config, updates));
   app.use('/api', docsRouter());
   if (devTools) app.use('/api', devRouter(campaigns, config));

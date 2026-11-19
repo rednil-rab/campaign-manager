@@ -38,6 +38,8 @@ export interface PlayerCharacter {
   notes: string;
   /** Written by the player through their share link; the DM-only `notes` is never shown to players. */
   playerNotes?: string;
+  /** Set only by the server when the character has a portrait; bumps whenever the image changes. */
+  portraitVersion?: number;
   stats: Stats;
   inventory: InventoryItem[];
 }

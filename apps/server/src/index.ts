@@ -6,6 +6,9 @@ import { createApp } from './app';
 import { loadConfig } from './config';
 import { createMongoCampaignRepo } from './campaigns/mongoCampaignRepo';
 import { createMongoShareRepo } from './shares/mongoShareRepo';
+import { createOpenAiGenerator } from './portraits/generator';
+import { createMongoPortraitRepo } from './portraits/mongoPortraitRepo';
+import { createMongoPortraitUsageRepo } from './portraits/mongoPortraitUsageRepo';
 import { createMongoUserRepo } from './users/mongoUserRepo';
 
 const config = loadConfig();
@@ -22,6 +25,13 @@ const app = createApp({
   users: await createMongoUserRepo(db),
   campaigns: await createMongoCampaignRepo(db),
   shares: await createMongoShareRepo(db),
+  portraits: await createMongoPortraitRepo(db),
+  portraitUsage: await createMongoPortraitUsageRepo(db),
+  portraitGenerator: config.openAiApiKey
+    ? createOpenAiGenerator({ apiKey: config.openAiApiKey, model: config.openAiImageModel })
+    : undefined,
+  portraitDailyLimit: config.portraitDailyLimit,
+  portraitGlobalDailyLimit: config.portraitGlobalDailyLimit,
   config,
   webDir: serveWeb ? webDir : undefined,
   devTools: process.env.NODE_ENV !== 'production',

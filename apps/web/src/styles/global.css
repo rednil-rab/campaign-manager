@@ -399,3 +399,16 @@ textarea.input {
   margin: 0 0 var(--space);
   font-size: 1.4rem;
 }
+.portrait {
+  display: block;
+  width: 256px;
+  max-width: 100%;
+  height: auto;
+  border: 2px solid var(--border);
+  box-shadow: 4px 4px 0 #000;
+  margin-bottom: calc(var(--space) * 2);
+}
+
+.portrait--card {
+  width: 160px;
+}

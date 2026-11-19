@@ -6,6 +6,7 @@ import { StatsFields } from './StatsFields';
 import { fromDraft, toDraft } from './statsDraft';
 import { InventoryFields } from './InventoryFields';
 import { fromItemDrafts, toItemDrafts } from './inventoryDraft';
+import { PortraitField } from './PortraitField';
 
 interface CharacterFormProps {
   campaign: Campaign;
@@ -24,6 +25,15 @@ export function CharacterForm({ campaign, initial, onSave, onCancel }: Character
   const [items, setItems] = useState(() => toItemDrafts(initial?.inventory));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // Only public facts go into the prompt; the DM's private notes are never prefilled.
+  const pickLabel = (pick: typeof race, options: { id: string; name: string }[]) => {
+    const p = fromPick(pick);
+    return (p.id && options.find((o) => o.id === p.id)?.name) || p.text;
+  };
+  const suggestedPrompt = [name.trim(), [pickLabel(race, campaign.races), pickLabel(klass, campaign.classes)].filter(Boolean).join(' ')]
+    .filter(Boolean)
+    .join(', ');
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -66,6 +76,11 @@ export function CharacterForm({ campaign, initial, onSave, onCancel }: Character
       </label>
       <OptionPicker label="Race" options={campaign.races} value={race} onChange={setRace} />
       <OptionPicker label="Class" options={campaign.classes} value={klass} onChange={setKlass} />
+      {initial ? (
+        <PortraitField characterId={initial.id} name={initial.name} suggestedPrompt={suggestedPrompt} />
+      ) : (
+        <p className="muted">Save the character to add a portrait.</p>
+      )}
       <StatsFields definitions={campaign.statDefinitions} value={stats} onChange={setStats} />
       <InventoryFields value={items} onChange={setItems} />
       <label className="field">

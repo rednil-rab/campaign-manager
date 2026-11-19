@@ -35,6 +35,7 @@ import {
 import { mutateCampaign } from './service';
 import type { CampaignRepo } from './types';
 import type { ShareRepo } from '../shares/types';
+import type { PortraitRepo } from '../portraits/types';
 import { newShareToken } from '../shares/token';
 import type { CampaignUpdateHub } from './updates';
 
@@ -43,6 +44,7 @@ const MAX_CAMPAIGNS_PER_USER = 50;
 export function campaignsRouter(
   repo: CampaignRepo,
   shares: ShareRepo,
+  portraits: PortraitRepo,
   config: Pick<Config, 'jwtSecret'>,
   updates?: CampaignUpdateHub,
 ) {
@@ -76,6 +78,7 @@ export function campaignsRouter(
     if (!(await repo.delete(req.userId!, req.params.id))) throw new HttpError(404, 'Campaign not found');
     for (const link of await shares.listForCampaign(req.userId!, req.params.id)) updates?.revokeToken(link.token);
     await shares.deleteForCampaign(req.userId!, req.params.id);
+    await portraits.deleteForCampaign(req.userId!, req.params.id);
     updates?.publishCampaignUpdate(req.params.id);
     res.status(204).end();
   });
@@ -157,6 +160,7 @@ export function campaignsRouter(
   entity('characters', parseCharacter, upsertCharacter, deleteCharacter, async (ownerId, campaignId, characterId) => {
     const links = await shares.listForCampaign(ownerId, campaignId);
     await shares.deleteForCharacter(ownerId, campaignId, characterId);
+    await portraits.delete(ownerId, campaignId, characterId);
     for (const link of links) {
       if (link.characterId === characterId) updates?.revokeToken(link.token);
     }

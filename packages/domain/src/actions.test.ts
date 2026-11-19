@@ -9,6 +9,7 @@ import {
   deleteRace,
   deleteSession,
   deleteStatDefinition,
+  setPortraitVersion,
   upsertCharacter,
   upsertClass,
   upsertNpc,
@@ -297,5 +298,28 @@ describe('races and classes', () => {
     expect(() => upsertCharacter(ashenCrown, { ...kael, classId: 'ghost' })).toThrow(DomainError);
     const custom = upsertCharacter(ashenCrown, { ...kael, raceId: undefined, race: 'Tiefling' });
     expect(raceLabel(custom, custom.characters[0])).toBe('Tiefling');
+  });
+});
+
+describe('portraitVersion', () => {
+  const kael = ashenCrown.characters[0];
+  const versionOf = (c: typeof ashenCrown) => c.characters.find((p) => p.id === kael.id)?.portraitVersion;
+
+  it('setPortraitVersion sets and clears the version', () => {
+    const set = setPortraitVersion(ashenCrown, kael.id, 7);
+    expect(versionOf(set)).toBe(7);
+    expect(versionOf(setPortraitVersion(set, kael.id, undefined))).toBeUndefined();
+    expect(set.characters.slice(1)).toEqual(ashenCrown.characters.slice(1));
+  });
+
+  it('setPortraitVersion rejects an unknown character', () => {
+    expect(() => setPortraitVersion(ashenCrown, 'ghost', 1)).toThrow(DomainError);
+  });
+
+  it('upsertCharacter keeps the stored portraitVersion and ignores a supplied one', () => {
+    const stored = setPortraitVersion(ashenCrown, kael.id, 5);
+    expect(versionOf(upsertCharacter(stored, { ...kael, portraitVersion: 999 }))).toBe(5);
+    expect(versionOf(upsertCharacter(stored, { ...kael, portraitVersion: undefined }))).toBe(5);
+    expect(versionOf(upsertCharacter(ashenCrown, { ...kael, portraitVersion: 999 }))).toBeUndefined();
   });
 });

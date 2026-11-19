@@ -53,6 +53,7 @@ export interface PlayerView {
     stats: { id: Id; name: string; value: number }[];
     inventory: InventoryItem[];
     playerNotes: string;
+    portraitVersion?: number;
   };
 }
 
@@ -83,6 +84,7 @@ export function playerView(c: Campaign, characterId: Id): PlayerView | undefined
       stats: statsFor(c, p.stats).map(({ def, value }) => ({ id: def.id, name: def.name, value })),
       inventory: p.inventory.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, notes: i.notes })),
       playerNotes: p.playerNotes ?? '',
+      portraitVersion: p.portraitVersion,
     },
   };
 }
