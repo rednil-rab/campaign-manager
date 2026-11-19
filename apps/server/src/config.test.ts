@@ -28,9 +28,11 @@ describe('loadConfig', () => {
   it('reads the optional portrait settings', () => {
     const config = loadConfig(valid);
     expect(config.openAiApiKey).toBeUndefined();
+    expect(config.openAiImageModel).toBe('gpt-image-1-mini');
     expect(config.portraitDailyLimit).toBe(20);
-    const set = loadConfig({ ...valid, OPENAI_API_KEY: 'sk-test', PORTRAIT_DAILY_LIMIT: '5' });
+    const set = loadConfig({ ...valid, OPENAI_API_KEY: 'sk-test', PORTRAIT_DAILY_LIMIT: '5', OPENAI_IMAGE_MODEL: 'gpt-image-2' });
     expect(set.openAiApiKey).toBe('sk-test');
+    expect(set.openAiImageModel).toBe('gpt-image-2');
     expect(set.portraitDailyLimit).toBe(5);
   });
 

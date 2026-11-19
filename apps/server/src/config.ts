@@ -7,6 +7,7 @@ export interface Config {
   secureCookies: boolean;
   /** Absent when portrait generation is not configured; uploads still work. */
   openAiApiKey?: string;
+  openAiImageModel: string;
   portraitDailyLimit: number;
 }
 
@@ -36,6 +37,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     bcryptRounds: 12,
     secureCookies: env.NODE_ENV === 'production',
     openAiApiKey: env.OPENAI_API_KEY || undefined,
+    openAiImageModel: env.OPENAI_IMAGE_MODEL || 'gpt-image-1-mini',
     portraitDailyLimit,
   };
 }
