@@ -5,12 +5,19 @@ import { mutateCampaign } from '../campaigns/service';
 import type { CampaignRepo } from '../campaigns/types';
 import { HttpError } from '../errors';
 import { rateLimit } from '../rateLimit';
+import { setImageHeaders } from '../portraits/routes';
+import type { PortraitRepo } from '../portraits/types';
 import type { CampaignUpdateHub } from '../campaigns/updates';
 import { isShareToken } from './token';
 import type { ShareRepo } from './types';
 
 /** Public endpoints: the token in the URL is the only credential, and it only reaches one character. */
-export function playRouter(campaigns: CampaignRepo, shares: ShareRepo, updates?: CampaignUpdateHub) {
+export function playRouter(
+  campaigns: CampaignRepo,
+  shares: ShareRepo,
+  portraits: PortraitRepo,
+  updates?: CampaignUpdateHub,
+) {
   const router = Router();
   router.use(rateLimit({ windowMs: 60_000, max: 120 }));
   router.use((_req, res, next) => {
@@ -35,6 +42,14 @@ export function playRouter(campaigns: CampaignRepo, shares: ShareRepo, updates?:
     const view = stored && playerPage(stored.campaign, link.characterId);
     if (!view) throw notFound();
     res.json(view);
+  });
+
+  router.get('/:token/portrait', async (req, res) => {
+    const link = await resolve(req.params.token);
+    const portrait = await portraits.get(link.ownerId, link.campaignId, link.characterId);
+    if (!portrait) throw notFound();
+    setImageHeaders(res, portrait.contentType);
+    res.send(portrait.bytes);
   });
 
   router.get('/:token/events', async (req, res) => {

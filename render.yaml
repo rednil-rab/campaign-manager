@@ -19,3 +19,6 @@ services:
       # Paste the Atlas connection string in the Render dashboard; it is a secret and stays out of git.
       - key: MONGODB_URI
         sync: false
+      # Optional: enables portrait generation. Add the key in the Render dashboard; without it uploads still work.
+      - key: OPENAI_API_KEY
+        sync: false
