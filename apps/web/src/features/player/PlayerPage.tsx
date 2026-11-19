@@ -261,7 +261,7 @@ export function PlayerPage() {
         </Panel>
       </div>
       <div id="panel-journal" role="tabpanel" aria-labelledby="tab-journal" hidden={tab !== 'journal'}>
-        <JournalView quests={view.quests ?? []} npcs={view.npcs ?? []} />
+        <JournalView token={token} quests={view.quests ?? []} npcs={view.npcs ?? []} />
       </div>
     </div>
   );

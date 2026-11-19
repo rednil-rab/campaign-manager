@@ -77,7 +77,7 @@ export function CharacterForm({ campaign, initial, onSave, onCancel }: Character
       <OptionPicker label="Race" options={campaign.races} value={race} onChange={setRace} />
       <OptionPicker label="Class" options={campaign.classes} value={klass} onChange={setKlass} />
       {initial ? (
-        <PortraitField characterId={initial.id} name={initial.name} suggestedPrompt={suggestedPrompt} />
+        <PortraitField kind="characters" id={initial.id} name={initial.name} suggestedPrompt={suggestedPrompt} />
       ) : (
         <p className="muted">Save the character to add a portrait.</p>
       )}

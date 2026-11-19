@@ -1,22 +1,23 @@
 import { useState, type ChangeEvent } from 'react';
 import { DomainError } from '@questkeeper/domain';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { MAX_PORTRAIT_BYTES, PORTRAIT_TYPES, portraitUrl } from '../../api/portraits';
+import { MAX_PORTRAIT_BYTES, PORTRAIT_TYPES, portraitUrl, type PortraitKind } from '../../api/portraits';
 import { useCampaign, useCampaignStore } from '../../store/campaignStore';
 import { PortraitDialog } from './PortraitDialog';
 
 interface PortraitFieldProps {
-  characterId: string;
+  kind: PortraitKind;
+  id: string;
   name: string;
   suggestedPrompt: string;
 }
 
-/** DM controls for one saved character's portrait: generate, upload, replace and remove. */
-export function PortraitField({ characterId, name, suggestedPrompt }: PortraitFieldProps) {
+/** DM controls for one saved character's or NPC's portrait: generate, upload, replace and remove. */
+export function PortraitField({ kind, id, name, suggestedPrompt }: PortraitFieldProps) {
   const campaign = useCampaign();
   const setPortrait = useCampaignStore((s) => s.setPortrait);
   const removePortrait = useCampaignStore((s) => s.removePortrait);
-  const version = campaign.characters.find((p) => p.id === characterId)?.portraitVersion;
+  const version = (kind === 'npcs' ? campaign.npcs : campaign.characters).find((x) => x.id === id)?.portraitVersion;
   const [generating, setGenerating] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -32,7 +33,7 @@ export function PortraitField({ characterId, name, suggestedPrompt }: PortraitFi
     if (file.size > MAX_PORTRAIT_BYTES) return setError('The image must be 500 KB or smaller');
     setBusy(true);
     try {
-      await setPortrait(characterId, file);
+      await setPortrait(kind, id, file);
     } catch (err) {
       if (err instanceof DomainError) setError(err.message);
       else throw err;
@@ -45,7 +46,7 @@ export function PortraitField({ characterId, name, suggestedPrompt }: PortraitFi
     <div className="field">
       <span>Portrait</span>
       {version !== undefined && (
-        <img className="portrait" src={portraitUrl(campaign.id, characterId, version)} alt={`Portrait of ${name}`} />
+        <img className="portrait" src={portraitUrl(campaign.id, kind, id, version)} alt={`Portrait of ${name}`} />
       )}
       <div className="form-row">
         <button className="button" type="button" onClick={() => setGenerating(true)} disabled={busy}>
@@ -69,7 +70,8 @@ export function PortraitField({ characterId, name, suggestedPrompt }: PortraitFi
       {generating && (
         <PortraitDialog
           campaignId={campaign.id}
-          characterId={characterId}
+          kind={kind}
+          id={id}
           initialPrompt={suggestedPrompt}
           onClose={() => setGenerating(false)}
         />
@@ -81,7 +83,7 @@ export function PortraitField({ characterId, name, suggestedPrompt }: PortraitFi
           confirmLabel="Remove"
           onCancel={() => setRemoving(false)}
           onConfirm={async () => {
-            await removePortrait(characterId);
+            await removePortrait(kind, id);
             setRemoving(false);
           }}
         />

@@ -4,6 +4,7 @@ import { SecrecyFields } from '../../components/SecrecyFields';
 import type { Campaign, Npc, NpcDisposition } from '@questkeeper/domain';
 import { StatsFields } from '../characters/StatsFields';
 import { fromDraft, toDraft } from '../characters/statsDraft';
+import { PortraitField } from '../characters/PortraitField';
 
 const dispositions: NpcDisposition[] = ['ally', 'neutral', 'hostile', 'unknown'];
 
@@ -25,6 +26,9 @@ export function NpcForm({ campaign, initial, onSave, onCancel }: NpcFormProps) {
   const [secret, setSecret] = useState(initial?.secret ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // Only public facts go into the prompt; the DM-only secret is never used.
+  const suggestedPrompt = [name.trim(), role.trim(), description.trim().slice(0, 500)].filter(Boolean).join(', ');
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -85,6 +89,11 @@ export function NpcForm({ campaign, initial, onSave, onCancel }: NpcFormProps) {
         <textarea className="input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
       </label>
       <StatsFields definitions={campaign.statDefinitions} value={stats} onChange={setStats} />
+      {initial ? (
+        <PortraitField kind="npcs" id={initial.id} name={initial.name} suggestedPrompt={suggestedPrompt} />
+      ) : (
+        <p className="muted">Save the NPC to add a portrait.</p>
+      )}
       <SecrecyFields known={known} secret={secret} onKnownChange={setKnown} onSecretChange={setSecret} />
       {error && (
         <p className="error" role="alert">
