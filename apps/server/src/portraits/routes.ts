@@ -63,6 +63,16 @@ export function portraitsRouter({
     if (!stored.campaign.characters.some((p) => p.id === characterId)) throw new HttpError(404, 'Character not found');
   };
 
+  /** Replacing an existing portrait never counts against the quotas; only a new one does. */
+  const assertRoomForNewPortrait = async (ownerId: string, campaignId: string) => {
+    if ((await portraits.count(ownerId, campaignId)) >= limits.perCampaign) {
+      throw new HttpError(400, `A campaign can have at most ${limits.perCampaign} portraits. Remove one first.`);
+    }
+    if ((await portraits.count(ownerId)) >= limits.perOwner) {
+      throw new HttpError(400, `An account can have at most ${limits.perOwner} portraits. Remove one first.`);
+    }
+  };
+
   router.get(path, async (req, res) => {
     const { id, characterId } = req.params;
     const portrait = await portraits.get(req.userId!, id, characterId);
@@ -88,14 +98,7 @@ export function portraitsRouter({
 
       // Replacing an existing portrait never counts against the quotas; only a new one does.
       const previous = await portraits.get(ownerId, id, characterId);
-      if (!previous) {
-        if ((await portraits.count(ownerId, id)) >= limits.perCampaign) {
-          throw new HttpError(400, `A campaign can have at most ${limits.perCampaign} portraits. Remove one first.`);
-        }
-        if ((await portraits.count(ownerId)) >= limits.perOwner) {
-          throw new HttpError(400, `An account can have at most ${limits.perOwner} portraits. Remove one first.`);
-        }
-      }
+      if (!previous) await assertRoomForNewPortrait(ownerId, id);
 
       const version = await portraits.put(ownerId, id, characterId, { contentType, bytes });
       try {
@@ -123,6 +126,8 @@ export function portraitsRouter({
     await requireCharacter(ownerId, id, characterId);
     if (!generator) throw new HttpError(503, 'Portrait generation is not configured');
     const prompt = parsePrompt(req.body);
+    // Refuse early so a generation is not spent on an image that could not be kept.
+    if (!(await portraits.get(ownerId, id, characterId))) await assertRoomForNewPortrait(ownerId, id);
 
     const now = Date.now();
     const day = new Date(now).toISOString().slice(0, 10);

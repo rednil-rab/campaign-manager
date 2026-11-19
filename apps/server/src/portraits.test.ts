@@ -379,3 +379,16 @@ describe('portrait upload cleanup', () => {
     expect((await request(app).get(url()).set('Cookie', cookie)).status).toBe(404);
   });
 });
+
+describe('portrait generation and quotas', () => {
+  it('refuses to generate for a new portrait when the quota is full, without using a generation', async () => {
+    const { app, setup, upload } = makeApp({ generator: fakeGenerator(), limits: { perCampaign: 1, perOwner: 10 }, limit: 1 });
+    const { cookie, url } = await setup();
+    await upload(cookie, url('pc-1'), png);
+    const gen = (cid: string) => request(app).post(`${url(cid)}/generate`).set('Cookie', cookie).send({ prompt: 'x' });
+    const refused = await gen('pc-2');
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toMatch(/at most 1 portrait/i);
+    expect((await gen('pc-1')).status).toBe(200);
+  });
+});
