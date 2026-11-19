@@ -47,5 +47,8 @@ export async function createMongoPortraitRepo(db: Db): Promise<PortraitRepo> {
     async deleteForCampaign(ownerId, campaignId) {
       await docs.deleteMany({ ownerId, campaignId });
     },
+    async count(ownerId, campaignId) {
+      return docs.countDocuments(campaignId === undefined ? { ownerId } : { ownerId, campaignId });
+    },
   };
 }

@@ -17,6 +17,8 @@ export interface PortraitRepo {
   ): Promise<number>;
   delete(ownerId: string, campaignId: string, characterId: string): Promise<boolean>;
   deleteForCampaign(ownerId: string, campaignId: string): Promise<void>;
+  /** How many portraits the owner has, optionally within one campaign. Used for storage quotas. */
+  count(ownerId: string, campaignId?: string): Promise<number>;
 }
 
 /** Counts portrait generations per owner and day, so spend on the image provider stays bounded. */

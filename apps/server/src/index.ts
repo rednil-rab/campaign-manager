@@ -31,6 +31,7 @@ const app = createApp({
     ? createOpenAiGenerator({ apiKey: config.openAiApiKey, model: config.openAiImageModel })
     : undefined,
   portraitDailyLimit: config.portraitDailyLimit,
+  portraitGlobalDailyLimit: config.portraitGlobalDailyLimit,
   config,
   webDir: serveWeb ? webDir : undefined,
   devTools: process.env.NODE_ENV !== 'production',

@@ -15,14 +15,20 @@ const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3
 const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.from([1, 0, 0, 0]), Buffer.from('WEBPVP8 ')]);
 const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
 
-function makeApp(opts: { generator?: PortraitGenerator; limit?: number } = {}) {
+function makeApp(opts: { generator?: PortraitGenerator; limit?: number; globalLimit?: number; limits?: { perCampaign: number; perOwner: number } } = {}) {
+  const store = createMemoryCampaignRepo();
+  // Lets a test make saving the campaign fail, to exercise the cleanup after a failed upload.
+  const failing = { on: false };
+  const campaigns = { ...store, replace: async (...args: Parameters<typeof store.replace>) => (failing.on ? null : store.replace(...args)) };
   const app = createApp({
     users: createMemoryUserRepo(),
-    campaigns: createMemoryCampaignRepo(),
+    campaigns,
     shares: createMemoryShareRepo(),
     config,
     portraitGenerator: opts.generator,
     portraitDailyLimit: opts.limit ?? 20,
+    portraitGlobalDailyLimit: opts.globalLimit,
+    portraitLimits: opts.limits,
   });
 
   const signUp = async (email: string) => {
@@ -53,7 +59,7 @@ function makeApp(opts: { generator?: PortraitGenerator; limit?: number } = {}) {
   const versionOf = (campaign: { characters: { id: string; portraitVersion?: number }[] }, cid = 'pc-1') =>
     campaign.characters.find((c) => c.id === cid)?.portraitVersion;
 
-  return { app, signUp, setup, upload, share, versionOf };
+  return { app, signUp, setup, upload, share, versionOf, failing };
 }
 
 const fakeGenerator = (impl?: () => Promise<{ contentType: string; bytes: Buffer }>): PortraitGenerator => ({
@@ -281,5 +287,95 @@ describe('player portrait', () => {
     const view = await request(app).get(`/api/play/${token}`);
     expect(view.body.character.portraitVersion).toBe(version);
     expect(JSON.stringify(view.body)).not.toContain('DM SECRET');
+  });
+});
+
+describe('portrait spend and storage limits', () => {
+  it('shares one global daily limit across accounts', async () => {
+    const { app, setup } = makeApp({ generator: fakeGenerator(), globalLimit: 2 });
+    const a = await setup('a@example.com');
+    const b = await setup('b@example.com');
+    const gen = (who: typeof a) => request(app).post(`${who.url()}/generate`).set('Cookie', who.cookie).send({ prompt: 'x' });
+    expect((await gen(a)).status).toBe(200);
+    expect((await gen(b)).status).toBe(200);
+    const blocked = await gen(a);
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error).toMatch(/temporarily unavailable/i);
+  });
+
+  it('does not use up the account limit when the global limit refuses', async () => {
+    const { app, setup } = makeApp({ generator: fakeGenerator(), globalLimit: 1, limit: 1 });
+    const a = await setup('a@example.com');
+    const b = await setup('b@example.com');
+    const gen = (who: typeof a) => request(app).post(`${who.url()}/generate`).set('Cookie', who.cookie).send({ prompt: 'x' });
+    expect((await gen(b)).status).toBe(200);
+    for (let i = 0; i < 2; i++) expect((await gen(a)).body.error).toMatch(/temporarily unavailable/i);
+  });
+
+  it('gives the global unit back when the provider fails', async () => {
+    let fail = true;
+    const generator = fakeGenerator(async () => {
+      if (fail) throw new HttpError(502, 'provider down');
+      return { contentType: 'image/webp', bytes: webp };
+    });
+    const { app, setup } = makeApp({ generator, globalLimit: 1 });
+    const { cookie, url } = await setup();
+    const gen = () => request(app).post(`${url()}/generate`).set('Cookie', cookie).send({ prompt: 'x' });
+    expect((await gen()).status).toBe(502);
+    fail = false;
+    expect((await gen()).status).toBe(200);
+  });
+
+  it('limits portraits per campaign but still allows replacing and re-adding after a removal', async () => {
+    const { app, setup, upload } = makeApp({ limits: { perCampaign: 1, perOwner: 10 } });
+    const { cookie, url } = await setup();
+    expect((await upload(cookie, url('pc-1'), png)).status).toBe(200);
+    const full = await upload(cookie, url('pc-2'), png);
+    expect(full.status).toBe(400);
+    expect(full.body.error).toMatch(/at most 1 portrait/i);
+    expect((await upload(cookie, url('pc-1'), jpeg, 'image/jpeg')).status).toBe(200);
+    await request(app).delete(url('pc-1')).set('Cookie', cookie);
+    expect((await upload(cookie, url('pc-2'), png)).status).toBe(200);
+  });
+
+  it('limits portraits per account across campaigns', async () => {
+    const { app, setup, upload } = makeApp({ limits: { perCampaign: 10, perOwner: 1 } });
+    const first = await setup();
+    expect((await upload(first.cookie, first.url('pc-1'), png)).status).toBe(200);
+    const created = await request(app).post('/api/campaigns').set('Cookie', first.cookie).send({ name: 'Second' });
+    await request(app)
+      .put(`/api/campaigns/${created.body.id}/characters/pc-9`)
+      .set('Cookie', first.cookie)
+      .send({ id: 'pc-9', name: 'Cora', stats: {}, inventory: [] });
+    const res = await upload(first.cookie, `/api/campaigns/${created.body.id}/characters/pc-9/portrait`, png);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/at most 1 portrait/i);
+    const other = await setup('other@example.com');
+    expect((await upload(other.cookie, other.url('pc-1'), png)).status).toBe(200);
+  });
+});
+
+describe('portrait upload cleanup', () => {
+  it('keeps the previous image when saving the campaign fails during a replace', async () => {
+    const { app, setup, upload, versionOf, failing } = makeApp();
+    const { cookie, id, url } = await setup();
+    const version = versionOf((await upload(cookie, url(), png)).body);
+    failing.on = true;
+    expect((await upload(cookie, url(), jpeg, 'image/jpeg')).status).toBe(409);
+    failing.on = false;
+    const res = await request(app).get(url()).set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(png);
+    const campaign = await request(app).get('/api/campaigns').set('Cookie', cookie);
+    expect(versionOf(campaign.body.find((c: { id: string }) => c.id === id))).toBe(version);
+  });
+
+  it('stores nothing when the very first upload cannot be saved to the campaign', async () => {
+    const { app, setup, upload, failing } = makeApp();
+    const { cookie, url } = await setup();
+    failing.on = true;
+    expect((await upload(cookie, url(), png)).status).toBe(409);
+    failing.on = false;
+    expect((await request(app).get(url()).set('Cookie', cookie)).status).toBe(404);
   });
 });

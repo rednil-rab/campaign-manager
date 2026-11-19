@@ -1,4 +1,7 @@
 export const MAX_PORTRAIT_BYTES = 500_000;
+/** Storage quotas, so one account cannot fill the database. */
+export const MAX_PORTRAITS_PER_CAMPAIGN = 25;
+export const MAX_PORTRAITS_PER_OWNER = 100;
 
 export type PortraitContentType = 'image/jpeg' | 'image/png' | 'image/webp';
 

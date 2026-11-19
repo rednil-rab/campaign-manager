@@ -9,6 +9,8 @@ export interface Config {
   openAiApiKey?: string;
   openAiImageModel: string;
   portraitDailyLimit: number;
+  /** Shared by all accounts, so many sign-ups cannot multiply the spend on the image provider. */
+  portraitGlobalDailyLimit: number;
 }
 
 const required = (env: NodeJS.ProcessEnv, key: string): string => {
@@ -28,6 +30,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (!Number.isInteger(portraitDailyLimit) || portraitDailyLimit <= 0) {
     throw new Error('PORTRAIT_DAILY_LIMIT must be a positive integer');
   }
+  const portraitGlobalDailyLimit = Number(env.PORTRAIT_GLOBAL_DAILY_LIMIT ?? 100);
+  if (!Number.isInteger(portraitGlobalDailyLimit) || portraitGlobalDailyLimit <= 0) {
+    throw new Error('PORTRAIT_GLOBAL_DAILY_LIMIT must be a positive integer');
+  }
 
   return {
     port,
@@ -39,5 +45,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     openAiApiKey: env.OPENAI_API_KEY || undefined,
     openAiImageModel: env.OPENAI_IMAGE_MODEL || 'gpt-image-1-mini',
     portraitDailyLimit,
+    portraitGlobalDailyLimit,
   };
 }

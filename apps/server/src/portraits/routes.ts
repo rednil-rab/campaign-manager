@@ -7,11 +7,13 @@ import type { CampaignUpdateHub } from '../campaigns/updates';
 import type { Config } from '../config';
 import { HttpError } from '../errors';
 import type { PortraitGenerator } from './generator';
-import { MAX_PORTRAIT_BYTES, sniffImage } from './image';
+import { MAX_PORTRAITS_PER_CAMPAIGN, MAX_PORTRAITS_PER_OWNER, MAX_PORTRAIT_BYTES, sniffImage } from './image';
 import type { PortraitRepo, PortraitUsageRepo } from './types';
 
 const MAX_PROMPT = 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** Counted under this owner id, so the shared limit uses the same atomic counter as the per-account one. */
+const GLOBAL_USAGE_KEY = '*global*';
 
 /** Headers that keep a stored image from ever being treated as anything but a picture. */
 export function setImageHeaders(res: Response, contentType: string) {
@@ -33,12 +35,24 @@ export interface PortraitsDeps {
   usage: PortraitUsageRepo;
   generator?: PortraitGenerator;
   dailyLimit: number;
+  globalDailyLimit: number;
+  limits?: { perCampaign: number; perOwner: number };
   config: Pick<Config, 'jwtSecret'>;
   updates?: CampaignUpdateHub;
 }
 
 /** The DM's portrait endpoints. Everything is scoped to the signed-in owner. */
-export function portraitsRouter({ campaigns, portraits, usage, generator, dailyLimit, config, updates }: PortraitsDeps) {
+export function portraitsRouter({
+  campaigns,
+  portraits,
+  usage,
+  generator,
+  dailyLimit,
+  globalDailyLimit,
+  limits = { perCampaign: MAX_PORTRAITS_PER_CAMPAIGN, perOwner: MAX_PORTRAITS_PER_OWNER },
+  config,
+  updates,
+}: PortraitsDeps) {
   const router = Router();
   router.use(requireAuth(config.jwtSecret));
   const path = '/:id/characters/:characterId/portrait';
@@ -72,11 +86,24 @@ export function portraitsRouter({ campaigns, portraits, usage, generator, dailyL
       const contentType = sniffImage(bytes);
       if (!contentType) throw new HttpError(400, 'The file must be a JPEG, PNG or WebP image');
 
+      // Replacing an existing portrait never counts against the quotas; only a new one does.
+      const previous = await portraits.get(ownerId, id, characterId);
+      if (!previous) {
+        if ((await portraits.count(ownerId, id)) >= limits.perCampaign) {
+          throw new HttpError(400, `A campaign can have at most ${limits.perCampaign} portraits. Remove one first.`);
+        }
+        if ((await portraits.count(ownerId)) >= limits.perOwner) {
+          throw new HttpError(400, `An account can have at most ${limits.perOwner} portraits. Remove one first.`);
+        }
+      }
+
       const version = await portraits.put(ownerId, id, characterId, { contentType, bytes });
       try {
         res.json(await mutateCampaign(campaigns, ownerId, id, (c) => setPortraitVersion(c, characterId, version), updates));
       } catch (err) {
-        await portraits.delete(ownerId, id, characterId);
+        // Put things back as they were: the old image if there was one, otherwise nothing.
+        if (previous) await portraits.put(ownerId, id, characterId, previous);
+        else await portraits.delete(ownerId, id, characterId);
         throw err;
       }
     },
@@ -103,12 +130,17 @@ export function portraitsRouter({ campaigns, portraits, usage, generator, dailyL
       const resetsAt = new Date(Math.floor(now / DAY_MS) * DAY_MS + DAY_MS).toISOString();
       throw new HttpError(429, `Daily portrait limit of ${dailyLimit} reached. It resets at ${resetsAt}.`);
     }
+    if (!(await usage.consume(GLOBAL_USAGE_KEY, day, globalDailyLimit))) {
+      await usage.release(ownerId, day);
+      throw new HttpError(429, 'Portrait generation is temporarily unavailable. Try again tomorrow, or upload an image instead.');
+    }
     try {
       const image = await generator.generate(prompt);
       if (image.bytes.length > MAX_PORTRAIT_BYTES) throw new HttpError(502, 'The generated image was too large');
       res.json({ contentType: image.contentType, data: image.bytes.toString('base64') });
     } catch (err) {
       await usage.release(ownerId, day);
+      await usage.release(GLOBAL_USAGE_KEY, day);
       throw err;
     }
   });

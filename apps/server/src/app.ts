@@ -28,6 +28,8 @@ export interface AppDeps {
   /** Absent when no image provider key is configured; uploads still work. */
   portraitGenerator?: PortraitGenerator;
   portraitDailyLimit?: number;
+  portraitGlobalDailyLimit?: number;
+  portraitLimits?: { perCampaign: number; perOwner: number };
   config: Pick<Config, 'jwtSecret' | 'bcryptRounds' | 'secureCookies'>;
   /** Directory with the built web app. When set, it is served with a single-page-app fallback. */
   webDir?: string;
@@ -61,6 +63,8 @@ export function createApp({
   portraitUsage = createMemoryPortraitUsageRepo(),
   portraitGenerator,
   portraitDailyLimit = 20,
+  portraitGlobalDailyLimit = 100,
+  portraitLimits,
   config,
   webDir,
   devTools,
@@ -86,6 +90,8 @@ export function createApp({
       usage: portraitUsage,
       generator: portraitGenerator,
       dailyLimit: portraitDailyLimit,
+      globalDailyLimit: portraitGlobalDailyLimit,
+      limits: portraitLimits,
       config,
       updates,
     }),

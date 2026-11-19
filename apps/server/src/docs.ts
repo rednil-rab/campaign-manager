@@ -130,7 +130,7 @@ export const openApiSpec = {
         security: cookie,
         parameters: [idParam('id'), idParam('characterId')],
         requestBody: { required: true, content: { 'image/jpeg': { schema: { type: 'string', format: 'binary' } }, 'image/png': { schema: { type: 'string', format: 'binary' } }, 'image/webp': { schema: { type: 'string', format: 'binary' } } } },
-        responses: { 200: ok(), 400: ok('not a JPEG, PNG or WebP image'), 404: ok(), 413: ok('over 500 KB') },
+        responses: { 200: ok(), 400: ok('not a JPEG, PNG or WebP image, or the portrait quota (25 per campaign, 100 per account) is reached'), 404: ok(), 413: ok('over 500 KB') },
       },
       delete: { tags: ['Portraits'], summary: 'Remove the portrait; returns the updated campaign', security: cookie, parameters: [idParam('id'), idParam('characterId')], responses: { 200: ok(), 404: ok() } },
     },
@@ -141,7 +141,7 @@ export const openApiSpec = {
         security: cookie,
         parameters: [idParam('id'), idParam('characterId')],
         requestBody: { required: true, ...json({ ...obj, properties: { prompt: str } }) },
-        responses: { 200: ok('{ contentType, data } with base64 image data'), 400: ok(), 404: ok(), 422: ok('the provider refused the prompt'), 429: ok('daily limit reached'), 502: ok('the provider failed'), 503: ok('generation is not configured') },
+        responses: { 200: ok('{ contentType, data } with base64 image data'), 400: ok(), 404: ok(), 422: ok('the provider refused the prompt'), 429: ok('daily limit reached, per account or across all accounts'), 502: ok('the provider failed'), 503: ok('generation is not configured') },
       },
     },
 

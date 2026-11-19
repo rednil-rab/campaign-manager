@@ -30,14 +30,17 @@ describe('loadConfig', () => {
     expect(config.openAiApiKey).toBeUndefined();
     expect(config.openAiImageModel).toBe('gpt-image-1-mini');
     expect(config.portraitDailyLimit).toBe(20);
-    const set = loadConfig({ ...valid, OPENAI_API_KEY: 'sk-test', PORTRAIT_DAILY_LIMIT: '5', OPENAI_IMAGE_MODEL: 'gpt-image-2' });
+    expect(config.portraitGlobalDailyLimit).toBe(100);
+    const set = loadConfig({ ...valid, OPENAI_API_KEY: 'sk-test', PORTRAIT_DAILY_LIMIT: '5', PORTRAIT_GLOBAL_DAILY_LIMIT: '50', OPENAI_IMAGE_MODEL: 'gpt-image-2' });
     expect(set.openAiApiKey).toBe('sk-test');
     expect(set.openAiImageModel).toBe('gpt-image-2');
     expect(set.portraitDailyLimit).toBe(5);
+    expect(set.portraitGlobalDailyLimit).toBe(50);
   });
 
   it('rejects an invalid daily limit', () => {
     expect(() => loadConfig({ ...valid, PORTRAIT_DAILY_LIMIT: '0' })).toThrow(/PORTRAIT_DAILY_LIMIT/);
     expect(() => loadConfig({ ...valid, PORTRAIT_DAILY_LIMIT: 'abc' })).toThrow(/PORTRAIT_DAILY_LIMIT/);
+    expect(() => loadConfig({ ...valid, PORTRAIT_GLOBAL_DAILY_LIMIT: '0' })).toThrow(/PORTRAIT_GLOBAL_DAILY_LIMIT/);
   });
 });

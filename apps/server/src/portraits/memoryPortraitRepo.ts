@@ -28,5 +28,12 @@ export function createMemoryPortraitRepo(): PortraitRepo {
         if (item.ownerId === ownerId && item.campaignId === campaignId) items.delete(k);
       }
     },
+    async count(ownerId, campaignId) {
+      let n = 0;
+      for (const item of items.values()) {
+        if (item.ownerId === ownerId && (campaignId === undefined || item.campaignId === campaignId)) n++;
+      }
+      return n;
+    },
   };
 }
