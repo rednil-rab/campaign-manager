@@ -14,6 +14,7 @@ import {
 } from '@questkeeper/domain';
 import { create } from 'zustand';
 import { api } from '../api/client';
+import { deletePortrait, uploadPortrait } from '../api/portraits';
 
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -32,6 +33,8 @@ interface CampaignState extends Library {
   // Everything below is stored on the server and resolves once the saved campaign is applied.
   upsertCharacter: (character: PlayerCharacter) => Promise<void>;
   deleteCharacter: (id: Id) => Promise<void>;
+  setPortrait: (characterId: Id, image: Blob) => Promise<void>;
+  removePortrait: (characterId: Id) => Promise<void>;
   upsertNpc: (npc: Npc) => Promise<void>;
   deleteNpc: (id: Id) => Promise<void>;
   upsertQuest: (quest: Quest) => Promise<void>;
@@ -108,6 +111,8 @@ export const useCampaignStore = create<CampaignState>()((set, get) => {
 
     upsertCharacter: (item) => save('characters', item),
     deleteCharacter: (id) => remove('characters', id),
+    setPortrait: async (characterId, image) => apply(await uploadPortrait(activeId(), characterId, image)),
+    removePortrait: async (characterId) => apply(await deletePortrait(activeId(), characterId)),
     upsertNpc: (item) => save('npcs', item),
     deleteNpc: (id) => remove('npcs', id),
     upsertQuest: (item) => save('quests', item),

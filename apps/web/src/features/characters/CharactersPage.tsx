@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Dialog } from '../../components/Dialog';
 import { Panel, Tag } from '../../components/Panel';
+import { portraitUrl } from '../../api/portraits';
 import { classLabel, raceLabel, sessionsForCharacter } from '@questkeeper/domain';
 import type { PlayerCharacter } from '@questkeeper/domain';
 import { useCampaign, useCampaignStore } from '../../store/campaignStore';
@@ -45,6 +46,13 @@ export function CharactersPage() {
 
       {campaign.characters.map((p) => (
         <Panel key={p.id} title={p.name}>
+          {p.portraitVersion !== undefined && (
+            <img
+              className="portrait portrait--card"
+              src={portraitUrl(campaign.id, p.id, p.portraitVersion)}
+              alt={`Portrait of ${p.name}`}
+            />
+          )}
           <p>
             <Tag tone="cyan">
               {[raceLabel(campaign, p), classLabel(campaign, p)].filter(Boolean).join(' ') || 'Adventurer'}

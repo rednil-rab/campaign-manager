@@ -18,6 +18,8 @@ export function PlayerPage() {
   const { token = '' } = useParams();
   const [view, setView] = useState<PlayerPageData | null>(null);
   const [tab, setTab] = useState<Tab>('character');
+  // The version of a portrait that failed to load, so a broken image is hidden until it changes.
+  const [failedPortrait, setFailedPortrait] = useState<number | null>(null);
   const [items, setItems] = useState<ItemDraft[]>([]);
   const [notes, setNotes] = useState('');
   const [missing, setMissing] = useState(false);
@@ -204,6 +206,14 @@ export function PlayerPage() {
       {/* Both panels stay mounted so unsaved inventory and notes survive switching tabs. */}
       <div id="panel-character" role="tabpanel" aria-labelledby="tab-character" hidden={tab !== 'character'}>
         <Panel title="Character">
+          {character.portraitVersion !== undefined && failedPortrait !== character.portraitVersion && (
+            <img
+              className="portrait"
+              src={`/api/play/${encodeURIComponent(token)}/portrait?v=${character.portraitVersion}`}
+              alt={`Portrait of ${character.name}`}
+              onError={() => setFailedPortrait(character.portraitVersion ?? null)}
+            />
+          )}
           <p>
             <Tag tone="cyan">{[character.race, character.characterClass].filter(Boolean).join(' ') || 'Adventurer'}</Tag>
           </p>

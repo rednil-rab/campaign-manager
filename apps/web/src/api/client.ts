@@ -21,13 +21,15 @@ export const setUnauthorizedHandler = (fn: () => void) => {
 };
 
 export async function api<T = void>(method: string, path: string, body?: unknown): Promise<T> {
+  // A Blob (a portrait upload) is sent as-is; anything else is JSON.
+  const isBlob = body instanceof Blob;
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
       method,
       credentials: 'same-origin',
-      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: body === undefined ? undefined : { 'Content-Type': isBlob ? body.type : 'application/json' },
+      body: body === undefined ? undefined : isBlob ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError(0, 'Cannot reach the server. Check your connection and try again.');
