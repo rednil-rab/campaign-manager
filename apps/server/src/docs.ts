@@ -168,6 +168,15 @@ export const openApiSpec = {
       },
     },
 
+    '/play/{token}/npcs/{npcId}/portrait': {
+      get: {
+        tags: ['Player'],
+        summary: 'The portrait of an NPC the DM has revealed (no sign-in; the token is the credential). Hidden NPCs, unknown NPCs and NPCs without a portrait all answer an identical 404',
+        parameters: [idParam('token'), idParam('npcId')],
+        responses: { 200: ok('image/jpeg, image/png or image/webp'), 404: ok() },
+      },
+    },
+
     '/play/{token}/portrait': {
       get: { tags: ['Player'], summary: 'The shared character’s portrait (no sign-in; the token is the credential)', parameters: [idParam('token')], responses: { 200: ok('image/jpeg, image/png or image/webp'), 404: ok() } },
     },

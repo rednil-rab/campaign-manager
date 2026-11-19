@@ -6,6 +6,7 @@ import { HttpError } from './errors';
 import { MAX_PORTRAIT_BYTES } from './portraits/image';
 import type { PortraitGenerator } from './portraits/generator';
 import { createMemoryShareRepo } from './shares/memoryShareRepo';
+import { mintAgentToken } from './agent/token';
 import { createMemoryUserRepo } from './users/memoryUserRepo';
 
 const config = { jwtSecret: 'x'.repeat(32), bcryptRounds: 4, secureCookies: false };
@@ -576,5 +577,112 @@ describe('npc portraits', () => {
     expect((await request(m.app).get(npcUrl('n-2')).set('Cookie', cookie)).status).toBe(200);
     await request(m.app).delete(`/api/campaigns/${id}`).set('Cookie', cookie);
     expect((await request(m.app).get(npcUrl('n-2')).set('Cookie', cookie)).status).toBe(404);
+  });
+});
+
+describe('player npc portrait', () => {
+  async function setupPlayer() {
+    const m = makeApp();
+    const { cookie, id } = await m.setup();
+    const putNpc = (nid: string, over: Record<string, unknown> = {}) =>
+      request(m.app).put(`/api/campaigns/${id}/npcs/${nid}`).set('Cookie', cookie).send(npcBody(nid, over));
+    // n-1 revealed with a portrait, n-2 hidden with a portrait, n-3 revealed without one.
+    await putNpc('n-1', { knownToPlayers: true, secret: 'NPC SECRET' });
+    await putNpc('n-2', { secret: 'HIDDEN SECRET' });
+    await putNpc('n-3', { knownToPlayers: true });
+    const npcUrl = (nid: string) => `/api/campaigns/${id}/npcs/${nid}/portrait`;
+    await m.upload(cookie, npcUrl('n-1'), png);
+    await m.upload(cookie, npcUrl('n-2'), jpeg, 'image/jpeg');
+    const token = await m.share(cookie, id, 'pc-1');
+    const play = (nid: string, tok = token) => request(m.app).get(`/api/play/${tok}/npcs/${nid}/portrait`);
+    const page = async (tok = token) => (await request(m.app).get(`/api/play/${tok}`)).body;
+    return { ...m, app: m.app, cookie, id, putNpc, npcUrl, token, play, page };
+  }
+
+  it('serves a revealed npc portrait with safe, uncacheable headers', async () => {
+    const { play } = await setupPlayer();
+    const res = await play('n-1');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('image/png');
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['content-security-policy']).toBe("default-src 'none'; sandbox");
+    expect(res.body).toEqual(png);
+  });
+
+  it('makes a hidden npc, a nonexistent npc and a portrait-less npc indistinguishable', async () => {
+    const { play } = await setupPlayer();
+    const responses = await Promise.all(['n-2', 'ghost', 'n-3'].map((nid) => play(nid)));
+    for (const res of responses) {
+      expect(res.status).toBe(404);
+      expect(res.body).toEqual({ error: 'No portrait' });
+    }
+  });
+
+  it('blocks the image as soon as the npc is un-revealed and restores it when revealed again', async () => {
+    const { app, play, putNpc, cookie, npcUrl } = await setupPlayer();
+    expect((await play('n-1')).status).toBe(200);
+    await putNpc('n-1', { knownToPlayers: false });
+    const hidden = await play('n-1');
+    expect(hidden.status).toBe(404);
+    expect(hidden.body).toEqual({ error: 'No portrait' });
+    expect((await request(app).get(npcUrl('n-1')).set('Cookie', cookie)).status).toBe(200);
+    await putNpc('n-1', { knownToPlayers: true });
+    const back = await play('n-1');
+    expect(back.status).toBe(200);
+    expect(back.body).toEqual(png);
+  });
+
+  it("only reads inside the token's own campaign", async () => {
+    const { app, play, cookie, upload } = await setupPlayer();
+    const other = await request(app).post('/api/campaigns').set('Cookie', cookie).send({ name: 'Other' });
+    for (const nid of ['n-1', 'b-only']) {
+      await request(app)
+        .put(`/api/campaigns/${other.body.id}/npcs/${nid}`)
+        .set('Cookie', cookie)
+        .send(npcBody(nid, { knownToPlayers: true }));
+      await upload(cookie, `/api/campaigns/${other.body.id}/npcs/${nid}/portrait`, jpeg, 'image/jpeg');
+    }
+    expect((await play('b-only')).status).toBe(404);
+    expect((await play('n-1')).body).toEqual(png);
+  });
+
+  it('answers 404 for invalid, malformed and revoked links', async () => {
+    const { app, play, cookie, id, token } = await setupPlayer();
+    expect((await play('n-1', 'a'.repeat(43))).status).toBe(404);
+    expect((await play('n-1', 'short')).status).toBe(404);
+    await request(app).delete(`/api/campaigns/${id}/characters/pc-1/share`).set('Cookie', cookie);
+    expect((await play('n-1', token)).status).toBe(404);
+  });
+
+  it('lists portraitVersion only on revealed npcs and never mentions a hidden one', async () => {
+    const { page, putNpc, npcUrl, cookie, app } = await setupPlayer();
+    const body = await page();
+    expect(body.npcs.map((n: { id: string }) => n.id).sort()).toEqual(['n-1', 'n-3']);
+    expect(typeof body.npcs.find((n: { id: string }) => n.id === 'n-1').portraitVersion).toBe('number');
+    expect(body.npcs.find((n: { id: string }) => n.id === 'n-3')).not.toHaveProperty('portraitVersion');
+    const json = JSON.stringify(body);
+    for (const text of ['n-2', 'NPC n-2', 'SECRET']) expect(json).not.toContain(text);
+    await putNpc('n-1', { knownToPlayers: false });
+    expect((await page()).npcs.map((n: { id: string }) => n.id)).toEqual(['n-3']);
+    expect((await request(app).get(npcUrl('n-1')).set('Cookie', cookie)).status).toBe(200);
+  });
+
+  it('includes the same journal in the response to a player edit', async () => {
+    const { app, token } = await setupPlayer();
+    const res = await request(app).put(`/api/play/${token}`).send({ inventory: [], playerNotes: 'hi' });
+    expect(res.status).toBe(200);
+    expect(res.body.npcs.map((n: { id: string }) => n.id).sort()).toEqual(['n-1', 'n-3']);
+    expect(JSON.stringify(res.body)).not.toContain('SECRET');
+  });
+
+  it('keeps portraitVersion out of what the game agent receives', async () => {
+    const { app, cookie, id } = await setupPlayer();
+    const ownerId = JSON.parse(Buffer.from(cookie.split('=')[1].split('.')[1], 'base64url').toString()).sub as string;
+    const agent = mintAgentToken(config.jwtSecret, { ownerId, campaignId: id, characterId: 'pc-1', turnId: 't1', mode: 'player_action' });
+    const res = await request(app).get('/api/agent/v1/context/player').set('Authorization', `Bearer ${agent}`);
+    expect(res.status).toBe(200);
+    expect(res.body.npcs.map((n: { id: string }) => n.id).sort()).toEqual(['n-1', 'n-3']);
+    expect(JSON.stringify(res.body)).not.toContain('portraitVersion');
   });
 });

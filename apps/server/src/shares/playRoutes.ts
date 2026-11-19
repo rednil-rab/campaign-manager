@@ -52,6 +52,20 @@ export function playRouter(
     res.send(portrait.bytes);
   });
 
+  router.get('/:token/npcs/:npcId/portrait', async (req, res) => {
+    const link = await resolve(req.params.token);
+    const stored = await campaigns.get(link.ownerId, link.campaignId);
+    if (!stored || !stored.campaign.characters.some((p) => p.id === link.characterId)) throw notFound();
+    const npc = stored.campaign.npcs.find((n) => n.id === req.params.npcId);
+    // Checked on every request and failing closed. A hidden NPC, a nonexistent NPC and an NPC without a portrait
+    // all get the same answer, so a player cannot tell which NPCs exist or have a face the DM has not shown them.
+    if (!npc || npc.knownToPlayers !== true || npc.portraitVersion === undefined) throw new HttpError(404, 'No portrait');
+    const portrait = await portraits.get(link.ownerId, link.campaignId, { kind: 'npc', id: npc.id });
+    if (!portrait) throw new HttpError(404, 'No portrait');
+    setImageHeaders(res, portrait.contentType);
+    res.send(portrait.bytes);
+  });
+
   router.get('/:token/events', async (req, res) => {
     const token = req.params.token;
     const link = await resolve(token);
