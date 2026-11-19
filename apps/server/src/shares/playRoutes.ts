@@ -46,7 +46,7 @@ export function playRouter(
 
   router.get('/:token/portrait', async (req, res) => {
     const link = await resolve(req.params.token);
-    const portrait = await portraits.get(link.ownerId, link.campaignId, link.characterId);
+    const portrait = await portraits.get(link.ownerId, link.campaignId, { kind: 'character', id: link.characterId });
     if (!portrait) throw notFound();
     setImageHeaders(res, portrait.contentType);
     res.send(portrait.bytes);

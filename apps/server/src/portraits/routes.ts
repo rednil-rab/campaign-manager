@@ -75,7 +75,7 @@ export function portraitsRouter({
 
   router.get(path, async (req, res) => {
     const { id, characterId } = req.params;
-    const portrait = await portraits.get(req.userId!, id, characterId);
+    const portrait = await portraits.get(req.userId!, id, { kind: 'character', id: characterId });
     if (!portrait) throw new HttpError(404, 'No portrait');
     setImageHeaders(res, portrait.contentType);
     res.setHeader('Cache-Control', 'private, no-cache');
@@ -97,16 +97,16 @@ export function portraitsRouter({
       if (!contentType) throw new HttpError(400, 'The file must be a JPEG, PNG or WebP image');
 
       // Replacing an existing portrait never counts against the quotas; only a new one does.
-      const previous = await portraits.get(ownerId, id, characterId);
+      const previous = await portraits.get(ownerId, id, { kind: 'character', id: characterId });
       if (!previous) await assertRoomForNewPortrait(ownerId, id);
 
-      const version = await portraits.put(ownerId, id, characterId, { contentType, bytes });
+      const version = await portraits.put(ownerId, id, { kind: 'character', id: characterId }, { contentType, bytes });
       try {
         res.json(await mutateCampaign(campaigns, ownerId, id, (c) => setPortraitVersion(c, characterId, version), updates));
       } catch (err) {
         // Put things back as they were: the old image if there was one, otherwise nothing.
-        if (previous) await portraits.put(ownerId, id, characterId, previous);
-        else await portraits.delete(ownerId, id, characterId);
+        if (previous) await portraits.put(ownerId, id, { kind: 'character', id: characterId }, previous);
+        else await portraits.delete(ownerId, id, { kind: 'character', id: characterId });
         throw err;
       }
     },
@@ -115,7 +115,7 @@ export function portraitsRouter({
   router.delete(path, async (req, res) => {
     const { id, characterId } = req.params;
     await requireCharacter(req.userId!, id, characterId);
-    await portraits.delete(req.userId!, id, characterId);
+    await portraits.delete(req.userId!, id, { kind: 'character', id: characterId });
     res.json(await mutateCampaign(campaigns, req.userId!, id, (c) => setPortraitVersion(c, characterId, undefined), updates));
   });
 
@@ -127,7 +127,7 @@ export function portraitsRouter({
     if (!generator) throw new HttpError(503, 'Portrait generation is not configured');
     const prompt = parsePrompt(req.body);
     // Refuse early so a generation is not spent on an image that could not be kept.
-    if (!(await portraits.get(ownerId, id, characterId))) await assertRoomForNewPortrait(ownerId, id);
+    if (!(await portraits.get(ownerId, id, { kind: 'character', id: characterId }))) await assertRoomForNewPortrait(ownerId, id);
 
     const now = Date.now();
     const day = new Date(now).toISOString().slice(0, 10);
