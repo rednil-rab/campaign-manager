@@ -24,4 +24,18 @@ describe('loadConfig', () => {
   it('rejects a bad port', () => {
     expect(() => loadConfig({ ...valid, PORT: 'abc' })).toThrow(/PORT/);
   });
+
+  it('reads the optional portrait settings', () => {
+    const config = loadConfig(valid);
+    expect(config.openAiApiKey).toBeUndefined();
+    expect(config.portraitDailyLimit).toBe(20);
+    const set = loadConfig({ ...valid, OPENAI_API_KEY: 'sk-test', PORTRAIT_DAILY_LIMIT: '5' });
+    expect(set.openAiApiKey).toBe('sk-test');
+    expect(set.portraitDailyLimit).toBe(5);
+  });
+
+  it('rejects an invalid daily limit', () => {
+    expect(() => loadConfig({ ...valid, PORTRAIT_DAILY_LIMIT: '0' })).toThrow(/PORTRAIT_DAILY_LIMIT/);
+    expect(() => loadConfig({ ...valid, PORTRAIT_DAILY_LIMIT: 'abc' })).toThrow(/PORTRAIT_DAILY_LIMIT/);
+  });
 });
