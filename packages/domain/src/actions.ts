@@ -132,7 +132,17 @@ export function upsertCharacter(c: Campaign, character: PlayerCharacter): Campai
   }
   validateStats(c, character.stats);
   validateInventory(character.inventory);
-  return { ...c, characters: upsert(c.characters, character) };
+  // The portrait version is owned by the server; whatever the client sent is dropped.
+  const portraitVersion = c.characters.find((p) => p.id === character.id)?.portraitVersion;
+  return { ...c, characters: upsert(c.characters, { ...character, portraitVersion }) };
+}
+
+export function setPortraitVersion(c: Campaign, characterId: Id, version: number | undefined): Campaign {
+  if (!c.characters.some((p) => p.id === characterId)) throw new DomainError('Character not found');
+  return {
+    ...c,
+    characters: c.characters.map((p) => (p.id === characterId ? { ...p, portraitVersion: version } : p)),
+  };
 }
 
 export function upsertQuest(c: Campaign, quest: Quest): Campaign {

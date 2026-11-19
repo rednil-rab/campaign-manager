@@ -102,3 +102,13 @@ describe('playerPage', () => {
     expect(playerPage(campaign, 'ghost')).toBeUndefined();
   });
 });
+
+describe('playerView portraitVersion', () => {
+  it('exposes only the portrait version as new character data', () => {
+    const withPortrait = { ...ashenCrown, characters: ashenCrown.characters.map((p) => ({ ...p, notes: 'DM SECRET', portraitVersion: 3 })) };
+    const view = playerView(withPortrait, kael.id)!;
+    expect(view.character.portraitVersion).toBe(3);
+    expect(JSON.stringify(view)).not.toContain('DM SECRET');
+    expect(playerView(ashenCrown, kael.id)!.character.portraitVersion).toBeUndefined();
+  });
+});
