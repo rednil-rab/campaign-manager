@@ -686,3 +686,40 @@ describe('player npc portrait', () => {
     expect(JSON.stringify(res.body)).not.toContain('portraitVersion');
   });
 });
+
+describe('player image rate limit', () => {
+  async function setupImages() {
+    const m = makeApp();
+    const { cookie, id, url } = await m.setup();
+    await request(m.app)
+      .put(`/api/campaigns/${id}/npcs/n-1`)
+      .set('Cookie', cookie)
+      .send(npcBody('n-1', { knownToPlayers: true }));
+    await m.upload(cookie, `/api/campaigns/${id}/npcs/n-1/portrait`, png);
+    await m.upload(cookie, url('pc-1'), png);
+    const token = await m.share(cookie, id, 'pc-1');
+    return { app: m.app, token };
+  }
+
+  it('keeps portrait images available after the page requests have used up their own limit', async () => {
+    const { app, token } = await setupImages();
+    let last = 200;
+    for (let i = 0; i < 125 && last !== 429; i++) last = (await request(app).get(`/api/play/${token}`)).status;
+    expect(last).toBe(429);
+    expect((await request(app).get(`/api/play/${token}/portrait`)).status).toBe(200);
+    expect((await request(app).get(`/api/play/${token}/npcs/n-1/portrait`)).status).toBe(200);
+  });
+
+  it('does not let image requests use up the limit of the page requests', async () => {
+    const { app, token } = await setupImages();
+    for (let i = 0; i < 130; i++) await request(app).get(`/api/play/${token}/npcs/n-1/portrait`);
+    expect((await request(app).get(`/api/play/${token}`)).status).toBe(200);
+  });
+
+  it('still limits abusive image requests', async () => {
+    const { app, token } = await setupImages();
+    let limited = false;
+    for (let i = 0; i < 620 && !limited; i++) limited = (await request(app).get(`/api/play/${token}/portrait`)).status === 429;
+    expect(limited).toBe(true);
+  });
+});
