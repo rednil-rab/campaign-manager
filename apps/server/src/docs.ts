@@ -145,6 +145,38 @@ export const openApiSpec = {
       },
     },
 
+    '/campaigns/{id}/npcs/{npcId}/portrait': {
+      get: { tags: ['Portraits'], summary: 'The NPC’s portrait image (DM only)', security: cookie, parameters: [idParam('id'), idParam('npcId')], responses: { 200: ok('image/jpeg, image/png or image/webp'), 404: ok() } },
+      put: {
+        tags: ['Portraits'],
+        summary: 'Upload or replace the NPC’s portrait (raw JPEG, PNG or WebP body, up to 500 KB); returns the updated campaign',
+        security: cookie,
+        parameters: [idParam('id'), idParam('npcId')],
+        requestBody: { required: true, content: { 'image/jpeg': { schema: { type: 'string', format: 'binary' } }, 'image/png': { schema: { type: 'string', format: 'binary' } }, 'image/webp': { schema: { type: 'string', format: 'binary' } } } },
+        responses: { 200: ok(), 400: ok('not a JPEG, PNG or WebP image, or the shared portrait quota is reached'), 404: ok(), 413: ok('over 500 KB') },
+      },
+      delete: { tags: ['Portraits'], summary: 'Remove the NPC’s portrait; returns the updated campaign', security: cookie, parameters: [idParam('id'), idParam('npcId')], responses: { 200: ok(), 404: ok() } },
+    },
+    '/campaigns/{id}/npcs/{npcId}/portrait/generate': {
+      post: {
+        tags: ['Portraits'],
+        summary: 'Generate an NPC portrait preview from a prompt; nothing is saved (upload it to keep it). Shares the daily limits with character portraits',
+        security: cookie,
+        parameters: [idParam('id'), idParam('npcId')],
+        requestBody: { required: true, ...json({ ...obj, properties: { prompt: str } }) },
+        responses: { 200: ok('{ contentType, data } with base64 image data'), 400: ok(), 404: ok(), 422: ok('the provider refused the prompt'), 429: ok('daily limit reached, per account or across all accounts'), 502: ok('the provider failed'), 503: ok('generation is not configured') },
+      },
+    },
+
+    '/play/{token}/npcs/{npcId}/portrait': {
+      get: {
+        tags: ['Player'],
+        summary: 'The portrait of an NPC the DM has revealed (no sign-in; the token is the credential). Hidden NPCs, unknown NPCs and NPCs without a portrait all answer an identical 404',
+        parameters: [idParam('token'), idParam('npcId')],
+        responses: { 200: ok('image/jpeg, image/png or image/webp'), 404: ok() },
+      },
+    },
+
     '/play/{token}/portrait': {
       get: { tags: ['Player'], summary: 'The shared character’s portrait (no sign-in; the token is the credential)', parameters: [idParam('token')], responses: { 200: ok('image/jpeg, image/png or image/webp'), 404: ok() } },
     },

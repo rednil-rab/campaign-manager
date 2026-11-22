@@ -49,7 +49,7 @@ export function CharactersPage() {
           {p.portraitVersion !== undefined && (
             <img
               className="portrait portrait--card"
-              src={portraitUrl(campaign.id, p.id, p.portraitVersion)}
+              src={portraitUrl(campaign.id, 'characters', p.id, p.portraitVersion)}
               alt={`Portrait of ${p.name}`}
             />
           )}

@@ -19,7 +19,6 @@ export function playRouter(
   updates?: CampaignUpdateHub,
 ) {
   const router = Router();
-  router.use(rateLimit({ windowMs: 60_000, max: 120 }));
   router.use((_req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -36,20 +35,39 @@ export function playRouter(
     return link;
   };
 
+  // Portrait images get their own, larger budget: a table of players often shares one IP, and every revealed NPC portrait is a request, so counting them against the page's limit would break the Journal.
+  const imageLimit = rateLimit({ windowMs: 60_000, max: 600 });
+
+  router.get<{ token: string }>('/:token/portrait', imageLimit, async (req, res) => {
+    const link = await resolve(req.params.token);
+    const portrait = await portraits.get(link.ownerId, link.campaignId, { kind: 'character', id: link.characterId });
+    if (!portrait) throw notFound();
+    setImageHeaders(res, portrait.contentType);
+    res.send(portrait.bytes);
+  });
+
+  router.get<{ token: string; npcId: string }>('/:token/npcs/:npcId/portrait', imageLimit, async (req, res) => {
+    const link = await resolve(req.params.token);
+    const stored = await campaigns.get(link.ownerId, link.campaignId);
+    if (!stored || !stored.campaign.characters.some((p) => p.id === link.characterId)) throw notFound();
+    const npc = stored.campaign.npcs.find((n) => n.id === req.params.npcId);
+    // Checked on every request and failing closed. A hidden NPC, a nonexistent NPC and an NPC without a portrait
+    // all get the same answer, so a player cannot tell which NPCs exist or have a face the DM has not shown them.
+    if (!npc || npc.knownToPlayers !== true || npc.portraitVersion === undefined) throw new HttpError(404, 'No portrait');
+    const portrait = await portraits.get(link.ownerId, link.campaignId, { kind: 'npc', id: npc.id });
+    if (!portrait) throw new HttpError(404, 'No portrait');
+    setImageHeaders(res, portrait.contentType);
+    res.send(portrait.bytes);
+  });
+
+  router.use(rateLimit({ windowMs: 60_000, max: 120 }));
+
   router.get('/:token', async (req, res) => {
     const link = await resolve(req.params.token);
     const stored = await campaigns.get(link.ownerId, link.campaignId);
     const view = stored && playerPage(stored.campaign, link.characterId);
     if (!view) throw notFound();
     res.json(view);
-  });
-
-  router.get('/:token/portrait', async (req, res) => {
-    const link = await resolve(req.params.token);
-    const portrait = await portraits.get(link.ownerId, link.campaignId, link.characterId);
-    if (!portrait) throw notFound();
-    setImageHeaders(res, portrait.contentType);
-    res.send(portrait.bytes);
   });
 
   router.get('/:token/events', async (req, res) => {

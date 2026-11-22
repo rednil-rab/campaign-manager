@@ -1,11 +1,14 @@
 import type { Binary, Db } from 'mongodb';
-import type { PortraitRepo } from './types';
+import { portraitKey, type PortraitKind, type PortraitRepo } from './types';
 
 interface PortraitDoc {
   _id: string;
   ownerId: string;
   campaignId: string;
+  /** Holds the character id for character portraits (as before) and the NPC id for NPC portraits. */
   characterId: string;
+  /** Absent on documents written before NPC portraits existed, which means 'character'. */
+  kind?: PortraitKind;
   contentType: string;
   bytes: Binary | Buffer;
   version: number;
@@ -15,22 +18,22 @@ interface PortraitDoc {
 export async function createMongoPortraitRepo(db: Db): Promise<PortraitRepo> {
   const docs = db.collection<PortraitDoc>('portraits');
   await docs.createIndex({ ownerId: 1, campaignId: 1 });
-  const id = (campaignId: string, characterId: string) => `${campaignId}:${characterId}`;
 
   return {
-    async get(ownerId, campaignId, characterId) {
-      const doc = await docs.findOne({ _id: id(campaignId, characterId), ownerId });
+    async get(ownerId, campaignId, subject) {
+      const doc = await docs.findOne({ _id: portraitKey(campaignId, subject), ownerId });
       if (!doc) return null;
       const raw = doc.bytes as Binary;
       return { contentType: doc.contentType, bytes: Buffer.from(raw.buffer), version: doc.version };
     },
-    async put(ownerId, campaignId, characterId, image) {
+    async put(ownerId, campaignId, subject, image) {
       const doc = await docs.findOneAndUpdate(
-        { _id: id(campaignId, characterId), ownerId },
+        { _id: portraitKey(campaignId, subject), ownerId },
         {
           $set: {
             campaignId,
-            characterId,
+            characterId: subject.id,
+            kind: subject.kind,
             contentType: image.contentType,
             bytes: image.bytes,
             updatedAt: new Date(),
@@ -41,8 +44,8 @@ export async function createMongoPortraitRepo(db: Db): Promise<PortraitRepo> {
       );
       return doc!.version;
     },
-    async delete(ownerId, campaignId, characterId) {
-      return (await docs.deleteOne({ _id: id(campaignId, characterId), ownerId })).deletedCount === 1;
+    async delete(ownerId, campaignId, subject) {
+      return (await docs.deleteOne({ _id: portraitKey(campaignId, subject), ownerId })).deletedCount === 1;
     },
     async deleteForCampaign(ownerId, campaignId) {
       await docs.deleteMany({ ownerId, campaignId });

@@ -10,6 +10,7 @@ import {
   deleteSession,
   deleteStatDefinition,
   setPortraitVersion,
+  setNpcPortraitVersion,
   upsertCharacter,
   upsertClass,
   upsertNpc,
@@ -321,5 +322,28 @@ describe('portraitVersion', () => {
     expect(versionOf(upsertCharacter(stored, { ...kael, portraitVersion: 999 }))).toBe(5);
     expect(versionOf(upsertCharacter(stored, { ...kael, portraitVersion: undefined }))).toBe(5);
     expect(versionOf(upsertCharacter(ashenCrown, { ...kael, portraitVersion: 999 }))).toBeUndefined();
+  });
+});
+
+describe('npc portraitVersion', () => {
+  const npc = ashenCrown.npcs[0];
+  const versionOf = (c: typeof ashenCrown) => c.npcs.find((n) => n.id === npc.id)?.portraitVersion;
+
+  it('setNpcPortraitVersion sets and clears the version', () => {
+    const set = setNpcPortraitVersion(ashenCrown, npc.id, 4);
+    expect(versionOf(set)).toBe(4);
+    expect(versionOf(setNpcPortraitVersion(set, npc.id, undefined))).toBeUndefined();
+    expect(set.npcs.slice(1)).toEqual(ashenCrown.npcs.slice(1));
+  });
+
+  it('setNpcPortraitVersion rejects an unknown NPC', () => {
+    expect(() => setNpcPortraitVersion(ashenCrown, 'ghost', 1)).toThrow(DomainError);
+  });
+
+  it('upsertNpc keeps the stored portraitVersion and ignores a supplied one', () => {
+    const stored = setNpcPortraitVersion(ashenCrown, npc.id, 5);
+    expect(versionOf(upsertNpc(stored, { ...npc, portraitVersion: 999 }))).toBe(5);
+    expect(versionOf(upsertNpc(stored, { ...npc, portraitVersion: undefined }))).toBe(5);
+    expect(versionOf(upsertNpc(ashenCrown, { ...npc, portraitVersion: 999 }))).toBeUndefined();
   });
 });

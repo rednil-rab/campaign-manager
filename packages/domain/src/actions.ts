@@ -120,7 +120,14 @@ export function deleteStatDefinition(c: Campaign, id: Id): Campaign {
 
 export function upsertNpc(c: Campaign, npc: Npc): Campaign {
   if (npc.stats) validateStats(c, npc.stats);
-  return { ...c, npcs: upsert(c.npcs, npc) };
+  // The portrait version is owned by the server; whatever the client sent is dropped.
+  const portraitVersion = c.npcs.find((n) => n.id === npc.id)?.portraitVersion;
+  return { ...c, npcs: upsert(c.npcs, { ...npc, portraitVersion }) };
+}
+
+export function setNpcPortraitVersion(c: Campaign, npcId: Id, version: number | undefined): Campaign {
+  if (!c.npcs.some((n) => n.id === npcId)) throw new DomainError('NPC not found');
+  return { ...c, npcs: c.npcs.map((n) => (n.id === npcId ? { ...n, portraitVersion: version } : n)) };
 }
 
 export function upsertCharacter(c: Campaign, character: PlayerCharacter): Campaign {
