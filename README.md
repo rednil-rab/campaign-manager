@@ -69,6 +69,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the pull request workflow and pre-mer
 - React 18, TypeScript, Vite, React Router, Zustand
 - Express 5 and MongoDB
 - Shared domain package (`@questkeeper/domain`) used by both the web app and the server
+- Shared 8-bit theme (`@questkeeper/theme`, a git dependency pinned by tag): design tokens, base CSS and the `Panel`, `Tag`, `Button` and `Dialog` components. Change tokens or shared classes in that repo, then bump the tag here.
 
 ## Project structure
 
@@ -85,9 +86,9 @@ apps/
     api/          Fetch client
     store/        Zustand stores: campaigns (API-backed) and auth
     features/     One folder per screen: auth, campaigns, dashboard, sessions, quests, npcs, characters, system
-    components/   Shared UI: Panel, Tag, Dialog, ConfirmDialog
+    components/   Shared UI: ConfirmDialog (Panel, Tag, Button and Dialog come from @questkeeper/theme)
     app/          Router and layout (sidebar, auth guard, campaign route)
-    styles/       Design tokens and global CSS
+    styles/       App-specific CSS (layout, sidebar, journal, portraits); tokens and base CSS come from @questkeeper/theme
 ```
 
 This is an npm workspaces monorepo.

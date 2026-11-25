@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { DomainError } from '@questkeeper/domain';
-import { Panel } from '../../components/Panel';
+import { Panel } from '@questkeeper/theme';
 import { useAuthStore } from '../../store/authStore';
 
 export function LoginPage() {

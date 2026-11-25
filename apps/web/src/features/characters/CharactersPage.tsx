@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { Dialog } from '../../components/Dialog';
-import { Panel, Tag } from '../../components/Panel';
+import { Dialog, Panel, Tag } from '@questkeeper/theme';
 import { portraitUrl } from '../../api/portraits';
 import { classLabel, raceLabel, sessionsForCharacter } from '@questkeeper/domain';
 import type { PlayerCharacter } from '@questkeeper/domain';

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { Dialog } from '../../components/Dialog';
-import { Panel, Tag } from '../../components/Panel';
+import { Dialog, Panel, Tag } from '@questkeeper/theme';
 import { charactersForSession, npcsForSession, questsForSession } from '@questkeeper/domain';
 import type { Session } from '@questkeeper/domain';
 import { useCampaign, useCampaignStore } from '../../store/campaignStore';

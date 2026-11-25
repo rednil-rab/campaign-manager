@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { DomainError } from '@questkeeper/domain';
 import type { PlayerCharacter } from '@questkeeper/domain';
 import { createShare, playerLink, revokeShare, listShares } from '../../api/shares';
-import { Dialog } from '../../components/Dialog';
+import { Dialog } from '@questkeeper/theme';
 
 interface ShareDialogProps {
   campaignId: string;

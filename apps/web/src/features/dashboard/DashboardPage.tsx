@@ -1,5 +1,5 @@
 import { useCampaign } from '../../store/campaignStore';
-import { Panel, Tag } from '../../components/Panel';
+import { Panel, Tag } from '@questkeeper/theme';
 import { activeQuests, latestSession } from '@questkeeper/domain';
 
 export function DashboardPage() {

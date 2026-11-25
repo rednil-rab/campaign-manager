@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { PlayerPage } from '@questkeeper/domain';
 import { playerNpcPortraitUrl } from '../../api/portraits';
-import { Panel, Tag } from '../../components/Panel';
+import { Panel, Tag } from '@questkeeper/theme';
 
 interface Props {
   token: string;
