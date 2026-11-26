@@ -23,6 +23,8 @@ export interface Session {
   npcIds: Id[];
   /** Player characters who attended. */
   characterIds: Id[];
+  /** ISO timestamp set when the session is ended; ending locks nothing. */
+  endedAt?: string;
 }
 
 export interface PlayerCharacter {
@@ -38,6 +40,8 @@ export interface PlayerCharacter {
   notes: string;
   /** Written by the player through their share link; the DM-only `notes` is never shown to players. */
   playerNotes?: string;
+  /** Short status labels such as "poisoned"; visible to the player. */
+  conditions?: string[];
   /** Set only by the server when the character has a portrait; bumps whenever the image changes. */
   portraitVersion?: number;
   stats: Stats;

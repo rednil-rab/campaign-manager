@@ -41,6 +41,7 @@ export function SessionForm({ campaign, initial, onSave, onCancel }: SessionForm
         questIds,
         npcIds,
         characterIds,
+        ...(initial?.endedAt ? { endedAt: initial.endedAt } : {}),
       });
     } catch (err) {
       if (err instanceof DomainError) setError(err.message);

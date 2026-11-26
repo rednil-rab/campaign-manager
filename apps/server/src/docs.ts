@@ -244,6 +244,62 @@ export const openApiSpec = {
         responses: { 200: ok('{ status: applied | pending_approval | rejected, reason? }'), 400: ok() },
       },
     },
+    '/agent/v1/characters': {
+      get: { tags: ['Agent'], summary: 'List characters (a player_action token sees only its own)', security: agent, responses: { 200: ok('[{ id, name, player, race, characterClass }]'), 401: ok() } },
+    },
+    '/agent/v1/characters/{id}': {
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+      get: {
+        tags: ['Agent'],
+        summary: 'Get a character: full record for dm_turn and recap, the player view for player_action',
+        security: agent,
+        responses: { 200: ok(), 401: ok(), 403: ok('player_action token for another character'), 404: ok() },
+      },
+      patch: {
+        tags: ['Agent'],
+        summary: 'Update a character directly (dm_turn, or player_action for its own character)',
+        description:
+          'At least one of: stats ({ statId: integer }, merged; HP is a stat), conditions (replaces the list), inventory ({ upsert: items by id, remove: item ids }), playerNotes, notes (DM notes; dm_turn only). `id` is a request id: a retried request logs once. Each update adds a DM-only event to the game log.',
+        security: agent,
+        requestBody: {
+          required: true,
+          content: { 'application/json': { schema: obj, example: { id: 'u1', stats: { hp: 12 }, conditions: ['poisoned'], inventory: { upsert: [{ id: 'i-lamp', name: 'Lamp', quantity: 1, notes: '' }] } } } },
+        },
+        responses: { 200: ok('The updated character'), 400: ok(), 401: ok(), 403: ok('recap token, another character, or notes from a player turn'), 404: ok(), 409: ok('Saved by another request; retry') },
+      },
+    },
+    '/agent/v1/sessions': {
+      get: { tags: ['Agent'], summary: 'List sessions (a player_action token sees only attended sessions, without summaries)', security: agent, responses: { 200: ok(), 401: ok() } },
+      post: {
+        tags: ['Agent'],
+        summary: 'Create a session (dm_turn only); the number is assigned by the server',
+        description: 'The client-chosen `id` makes a retry harmless: an existing id returns 200 and changes nothing. `playedOn` defaults to today (UTC).',
+        security: agent,
+        requestBody: { required: true, content: { 'application/json': { schema: obj, example: { id: 's-4', title: 'Into the marsh', playedOn: '2026-11-26' } } } },
+        responses: { 200: ok('Already existed'), 201: ok('Created'), 400: ok(), 401: ok(), 403: ok('Not a dm_turn token'), 409: ok() },
+      },
+    },
+    '/agent/v1/sessions/{id}': {
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+      get: { tags: ['Agent'], summary: 'Get a session (404 for a session a player token did not attend)', security: agent, responses: { 200: ok(), 401: ok(), 404: ok() } },
+      patch: {
+        tags: ['Agent'],
+        summary: 'Update a session (dm_turn only)',
+        description: 'At least one of: title, summary (replaces), note (appended to the summary; safe to retry). `id` is a request id.',
+        security: agent,
+        requestBody: { required: true, content: { 'application/json': { schema: obj, example: { id: 'u1', note: 'The bridge fell.' } } } },
+        responses: { 200: ok('The updated session'), 400: ok(), 401: ok(), 403: ok(), 404: ok(), 409: ok() },
+      },
+    },
+    '/agent/v1/sessions/{id}/end': {
+      parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+      post: {
+        tags: ['Agent'],
+        summary: 'End a session (dm_turn only): sets endedAt; editing stays possible and a repeat keeps the first time',
+        security: agent,
+        responses: { 200: ok('The session'), 401: ok(), 403: ok(), 404: ok(), 409: ok() },
+      },
+    },
 
     '/dev/agent-token': {
       post: {

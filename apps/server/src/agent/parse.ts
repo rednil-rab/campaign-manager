@@ -1,8 +1,76 @@
-import type { AgentChange, GameEventKind } from '@questkeeper/domain';
-import { bad, DISPOSITIONS, isRecord, oneOf, QUEST_STATUSES, text } from '../campaigns/parse';
+import type { AgentChange, CharacterPatch, GameEventKind, NewSession, SessionPatch } from '@questkeeper/domain';
+import {
+  bad,
+  DISPOSITIONS,
+  isRecord,
+  oneOf,
+  parseConditions,
+  parseIdList,
+  parseInventory,
+  parsePlayedOn,
+  parsePlayerNotes,
+  parseStats,
+  QUEST_STATUSES,
+  text,
+} from '../campaigns/parse';
 
 const requestId = (v: unknown) => text(v, 'id', 100, { required: true });
 const refId = (v: unknown, field: string) => text(v, field, 100, { required: true });
+
+const MAX_REMOVALS = 200;
+
+/** Validates a partial character update; at least one change is required. */
+export function parseCharacterPatch(body: unknown): { id: string; patch: CharacterPatch } {
+  if (!isRecord(body)) return bad('Update must be an object');
+  const id = requestId(body.id);
+  const patch: CharacterPatch = {};
+  if (body.stats !== undefined) {
+    patch.stats = parseStats(body.stats);
+    if (Object.keys(patch.stats).length === 0) return bad('stats must name at least one stat');
+  }
+  if (body.conditions !== undefined) patch.conditions = parseConditions(body.conditions);
+  if (body.inventory !== undefined) {
+    if (!isRecord(body.inventory)) return bad('inventory must be an object');
+    const { upsert, remove } = body.inventory;
+    patch.inventory = {};
+    if (upsert !== undefined) patch.inventory.upsert = parseInventory(upsert);
+    if (remove !== undefined) {
+      if (!Array.isArray(remove) || remove.length > MAX_REMOVALS) return bad(`remove must be a list of at most ${MAX_REMOVALS} item ids`);
+      patch.inventory.remove = remove.map((r) => refId(r, 'item id'));
+    }
+    if (!patch.inventory.upsert?.length && !patch.inventory.remove?.length) return bad('inventory must upsert or remove at least one item');
+  }
+  if (body.playerNotes !== undefined) patch.playerNotes = parsePlayerNotes(body.playerNotes);
+  if (body.notes !== undefined) patch.notes = text(body.notes, 'notes', 5000);
+  if (Object.keys(patch).length === 0) return bad('Nothing to update');
+  return { id, patch };
+}
+
+/** Validates a new session. The client-chosen id makes a retry harmless; the number is assigned by the server. */
+export function parseSessionCreate(body: unknown): NewSession {
+  if (!isRecord(body)) return bad('Session must be an object');
+  return {
+    id: requestId(body.id),
+    title: text(body.title, 'title', 120, { required: true }),
+    playedOn: body.playedOn === undefined ? new Date().toISOString().slice(0, 10) : parsePlayedOn(body.playedOn),
+    summary: text(body.summary ?? '', 'summary', 20000),
+    questIds: parseIdList(body.questIds, 'questIds'),
+    npcIds: parseIdList(body.npcIds, 'npcIds'),
+    characterIds: parseIdList(body.characterIds, 'characterIds'),
+  };
+}
+
+/** Validates a partial session update; at least one change is required. */
+export function parseSessionPatch(body: unknown): { id: string; patch: SessionPatch } {
+  if (!isRecord(body)) return bad('Update must be an object');
+  const id = requestId(body.id);
+  const patch: SessionPatch = {};
+  if (body.title !== undefined) patch.title = text(body.title, 'title', 120, { required: true });
+  if (body.summary !== undefined) patch.summary = text(body.summary, 'summary', 20000);
+  if (body.note !== undefined) patch.note = text(body.note, 'note', 2000, { required: true });
+  if (Object.keys(patch).length === 0) return bad('Nothing to update');
+  return { id, patch };
+}
 
 function quantity(v: unknown): number {
   if (typeof v !== 'number' || !Number.isInteger(v)) return bad('quantity must be a whole number');

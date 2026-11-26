@@ -37,6 +37,22 @@ const createsCycle = (quests: Quest[], quest: Quest): boolean => {
 
 const MAX_STAT_VALUE = 100000;
 
+export const MAX_CONDITIONS = 20;
+export const MAX_CONDITION_LENGTH = 40;
+
+/** Trims each condition and rejects blanks, over-long entries and too many of them. */
+export function normalizeConditions(conditions: string[]): string[] {
+  if (conditions.length > MAX_CONDITIONS) throw new DomainError(`A character can have at most ${MAX_CONDITIONS} conditions`);
+  return conditions.map((raw) => {
+    const value = raw.trim();
+    if (!value) throw new DomainError('A condition cannot be empty');
+    if (value.length > MAX_CONDITION_LENGTH) {
+      throw new DomainError(`A condition must be at most ${MAX_CONDITION_LENGTH} characters`);
+    }
+    return value;
+  });
+}
+
 function validateStats(c: Campaign, stats: Stats): void {
   for (const [id, value] of Object.entries(stats)) {
     const def = c.statDefinitions.find((d) => d.id === id);
@@ -139,9 +155,10 @@ export function upsertCharacter(c: Campaign, character: PlayerCharacter): Campai
   }
   validateStats(c, character.stats);
   validateInventory(character.inventory);
+  const conditions = character.conditions ? normalizeConditions(character.conditions) : undefined;
   // The portrait version is owned by the server; whatever the client sent is dropped.
   const portraitVersion = c.characters.find((p) => p.id === character.id)?.portraitVersion;
-  return { ...c, characters: upsert(c.characters, { ...character, portraitVersion }) };
+  return { ...c, characters: upsert(c.characters, { ...character, ...(conditions ? { conditions } : {}), portraitVersion }) };
 }
 
 export function setPortraitVersion(c: Campaign, characterId: Id, version: number | undefined): Campaign {

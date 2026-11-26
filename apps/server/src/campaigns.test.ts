@@ -119,6 +119,14 @@ describe('characters api', () => {
     expect(list.body[0].characters.some((p: { name: string }) => p.name === 'Aria the Bold')).toBe(true);
   });
 
+  it('keeps conditions on a character and rejects too many or too long', async () => {
+    const ok = await put('pc-1', character({ conditions: ['prone'] }));
+    expect(ok.status).toBe(200);
+    expect(ok.body.characters.find((p: { id: string }) => p.id === 'pc-1').conditions).toEqual(['prone']);
+    expect((await put('pc-1', character({ conditions: Array.from({ length: 21 }, (_, i) => `c${i}`) }))).status).toBe(400);
+    expect((await put('pc-1', character({ conditions: ['x'.repeat(41)] }))).status).toBe(400);
+  });
+
   it('enforces domain rules with a 400 and the domain message', async () => {
     const unknownStat = await put('pc-1', character({ stats: { ghost: 1 } }));
     expect(unknownStat.status).toBe(400);
@@ -222,6 +230,13 @@ describe('entity routes', () => {
     await put('/quests/q-1', quest());
     await put('/quests/q-2', quest({ id: 'q-2', prerequisiteQuestIds: ['q-1'] }));
     expect((await put('/quests/q-1', quest({ prerequisiteQuestIds: ['q-2'] }))).status).toBe(400);
+  });
+
+  it('keeps a valid endedAt on a session and rejects an invalid one', async () => {
+    const { put } = await newCampaign();
+    const ended = await put('/sessions/s-1', session({ endedAt: '2026-11-26T10:00:00.000Z' }));
+    expect(ended.body.sessions[0].endedAt).toBe('2026-11-26T10:00:00.000Z');
+    expect((await put('/sessions/s-1', session({ endedAt: 'nope' }))).status).toBe(400);
   });
 
   it('validates the shape of the input', async () => {
