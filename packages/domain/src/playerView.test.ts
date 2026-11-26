@@ -31,6 +31,15 @@ describe('updateCharacterByPlayer', () => {
 describe('playerView', () => {
   const secret = { ...ashenCrown, characters: ashenCrown.characters.map((p) => ({ ...p, notes: 'DM SECRET' })) };
 
+  it('shows conditions to the player, empty when the character has none', () => {
+    const withCondition = {
+      ...ashenCrown,
+      characters: ashenCrown.characters.map((p, i) => (i === 0 ? { ...p, conditions: ['poisoned'] } : p)),
+    };
+    expect(playerView(withCondition, kael.id)!.character.conditions).toEqual(['poisoned']);
+    expect(playerView(ashenCrown, kael.id)!.character.conditions).toEqual([]);
+  });
+
   it('contains the sheet but never the DM notes or other campaign data', () => {
     const view = playerView(secret, kael.id)!;
     const json = JSON.stringify(view);

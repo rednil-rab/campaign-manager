@@ -1,14 +1,16 @@
-import type {
-  Campaign,
-  InventoryItem,
-  Npc,
-  NpcDisposition,
-  PlayerCharacter,
-  Quest,
-  QuestStatus,
-  RuleOption,
-  Session,
-  Stats,
+import {
+  MAX_CONDITIONS,
+  MAX_CONDITION_LENGTH,
+  type Campaign,
+  type InventoryItem,
+  type Npc,
+  type NpcDisposition,
+  type PlayerCharacter,
+  type Quest,
+  type QuestStatus,
+  type RuleOption,
+  type Session,
+  type Stats,
 } from '@questkeeper/domain';
 import { HttpError } from '../errors';
 
@@ -51,6 +53,11 @@ export function parseInventory(raw: unknown): InventoryItem[] {
 
 export function parsePlayerNotes(raw: unknown): string {
   return text(raw ?? '', 'playerNotes', 5000);
+}
+
+export function parseConditions(raw: unknown): string[] {
+  if (!Array.isArray(raw) || raw.length > MAX_CONDITIONS) return bad(`conditions must be a list of at most ${MAX_CONDITIONS}`);
+  return raw.map((c) => text(c, 'condition', MAX_CONDITION_LENGTH, { required: true }));
 }
 
 const MAX_STATS = 100;
@@ -143,7 +150,14 @@ export function parseSession(body: unknown): Session {
     questIds: parseIdList(body.questIds, 'questIds'),
     npcIds: parseIdList(body.npcIds, 'npcIds'),
     characterIds: parseIdList(body.characterIds, 'characterIds'),
+    ...(body.endedAt === undefined || body.endedAt === null ? {} : { endedAt: parseTimestamp(body.endedAt, 'endedAt') }),
   };
+}
+
+export function parseTimestamp(v: unknown, field: string): string {
+  const value = text(v, field, 40, { required: true });
+  if (Number.isNaN(Date.parse(value))) return bad(`${field} must be a valid date and time`);
+  return value;
 }
 
 /** Used for stat definitions, races and classes. */
@@ -172,6 +186,7 @@ export function parseCharacter(body: unknown): PlayerCharacter {
     characterClass: text(body.characterClass ?? '', 'characterClass', 80),
     notes: text(body.notes ?? '', 'notes', 5000),
     playerNotes: body.playerNotes === undefined ? undefined : parsePlayerNotes(body.playerNotes),
+    ...(body.conditions === undefined || body.conditions === null ? {} : { conditions: parseConditions(body.conditions) }),
     stats,
     inventory,
   };
