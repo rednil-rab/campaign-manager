@@ -24,7 +24,10 @@ export function parseCharacterPatch(body: unknown): { id: string; patch: Charact
   if (!isRecord(body)) return bad('Update must be an object');
   const id = requestId(body.id);
   const patch: CharacterPatch = {};
-  if (body.stats !== undefined) patch.stats = parseStats(body.stats);
+  if (body.stats !== undefined) {
+    patch.stats = parseStats(body.stats);
+    if (Object.keys(patch.stats).length === 0) return bad('stats must name at least one stat');
+  }
   if (body.conditions !== undefined) patch.conditions = parseConditions(body.conditions);
   if (body.inventory !== undefined) {
     if (!isRecord(body.inventory)) return bad('inventory must be an object');
@@ -35,6 +38,7 @@ export function parseCharacterPatch(body: unknown): { id: string; patch: Charact
       if (!Array.isArray(remove) || remove.length > MAX_REMOVALS) return bad(`remove must be a list of at most ${MAX_REMOVALS} item ids`);
       patch.inventory.remove = remove.map((r) => refId(r, 'item id'));
     }
+    if (!patch.inventory.upsert?.length && !patch.inventory.remove?.length) return bad('inventory must upsert or remove at least one item');
   }
   if (body.playerNotes !== undefined) patch.playerNotes = parsePlayerNotes(body.playerNotes);
   if (body.notes !== undefined) patch.notes = text(body.notes, 'notes', 5000);

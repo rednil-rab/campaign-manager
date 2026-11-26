@@ -195,7 +195,7 @@ export function agentRouter(
       if (!c.characters.some((p) => p.id === characterId)) throw new HttpError(404, 'Character not found');
       const changed = Object.keys(patch).join(', ');
       return appendEvent(patchCharacter(c, characterId, patch), {
-        id: `audit:${g.turnId}:${id}`,
+        id: `audit:${g.turnId}:char:${characterId}:${id}`,
         at: new Date().toISOString(),
         kind: 'change',
         text: `Agent updated ${c.characters.find((p) => p.id === characterId)!.name}: ${changed}`,
@@ -277,7 +277,7 @@ export function agentRouter(
     requireDm(g);
     const sessionId = String(req.params.id);
     const { id, patch } = parseSessionPatch(req.body);
-    const saved = await changeSession(g, sessionId, id, `Agent updated session: ${Object.keys(patch).join(', ')}`, (c) =>
+    const saved = await changeSession(g, sessionId, `patch:${sessionId}:${id}`, `Agent updated session: ${Object.keys(patch).join(', ')}`, (c) =>
       patchSession(c, sessionId, patch),
     );
     res.json(saved.sessions.find((s) => s.id === sessionId));
