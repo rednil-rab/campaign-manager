@@ -195,7 +195,7 @@ export function agentRouter(
       if (!c.characters.some((p) => p.id === characterId)) throw new HttpError(404, 'Character not found');
       const changed = Object.keys(patch).join(', ');
       return appendEvent(patchCharacter(c, characterId, patch), {
-        id: `${g.turnId}:${id}:log`,
+        id: `audit:${g.turnId}:${id}`,
         at: new Date().toISOString(),
         kind: 'change',
         text: `Agent updated ${c.characters.find((p) => p.id === characterId)!.name}: ${changed}`,
@@ -243,7 +243,7 @@ export function agentRouter(
     mutateCampaign(campaigns, g.ownerId, g.campaignId, (c) => {
       if (!c.sessions.some((s) => s.id === sessionId)) throw new HttpError(404, 'Session not found');
       return appendEvent(apply(c), {
-        id: `${g.turnId}:${requestId}:log`,
+        id: `audit:${g.turnId}:${requestId}`,
         at: new Date().toISOString(),
         kind: 'change',
         text: describe,
@@ -260,7 +260,7 @@ export function agentRouter(
     const existed = (await load(g.ownerId, g.campaignId)).sessions.some((s) => s.id === input.id);
     const saved = await mutateCampaign(campaigns, g.ownerId, g.campaignId, (c) =>
       appendEvent(createSession(c, input), {
-        id: `${g.turnId}:session:${input.id}:log`,
+        id: `audit:${g.turnId}:session:${input.id}`,
         at: new Date().toISOString(),
         kind: 'change',
         text: `Agent created session: ${input.title}`,

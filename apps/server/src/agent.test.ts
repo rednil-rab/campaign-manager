@@ -247,7 +247,7 @@ describe('agent characters', () => {
     await as(tokenFor('dm_turn')).patch(`/characters/${kael}`, change);
     const stored = (await reload()).characters.find((p: { id: string }) => p.id === kael);
     expect(stored.inventory.filter((i: { id: string }) => i.id === 'i-lamp')).toHaveLength(1);
-    const logged = (await reload()).events.filter((e: { id: string }) => e.id === 'turn-1:p1:log');
+    const logged = (await reload()).events.filter((e: { id: string }) => e.id === 'audit:turn-1:p1');
     expect(logged).toHaveLength(1);
     expect(logged[0]).toMatchObject({ kind: 'change', visibility: 'dm', source: 'agent', characterId: kael });
     await as(tokenFor('dm_turn')).patch(`/characters/${kael}`, { id: 'p2', inventory: { remove: ['i-lamp'] }, notes: 'DM only' });
@@ -277,6 +277,14 @@ describe('agent characters', () => {
     expect((await dm.patch('/characters/ghost', change)).status).toBe(404);
     expect(await reload()).toEqual(before);
     expect((await request(app).get('/api/agent/v1/characters')).status).toBe(401);
+  });
+
+  it('keeps a client-chosen event id from suppressing the DM audit entry', async () => {
+    const { kael, tokenFor, as, reload } = await setup();
+    await as(tokenFor()).post('/events', { id: 'p1:log', kind: 'note', text: 'squatting', visibility: 'table' });
+    await as(tokenFor('dm_turn')).patch(`/characters/${kael}`, { id: 'p1', conditions: ['prone'] });
+    const audit = (await reload()).events.filter((e: { kind: string; source: string; text: string }) => e.kind === 'change' && e.text.startsWith('Agent updated'));
+    expect(audit).toHaveLength(1);
   });
 });
 
@@ -389,8 +397,8 @@ describe('agent sessions', () => {
     await dm.patch(`/sessions/${id}`, { id: 'u2', note: 'The bridge fell.' });
     const stored = (await reload()).sessions.find((s: { id: string }) => s.id === id);
     expect(stored.summary).toBe('Fresh\nThe bridge fell.');
-    const events = (await reload()).events.filter((e: { id: string }) => e.id.startsWith('turn-1:u'));
-    expect(events.map((e: { id: string }) => e.id)).toEqual(['turn-1:u1:log', 'turn-1:u2:log']);
+    const events = (await reload()).events.filter((e: { id: string }) => e.id.startsWith('audit:turn-1:u'));
+    expect(events.map((e: { id: string }) => e.id)).toEqual(['audit:turn-1:u1', 'audit:turn-1:u2']);
     expect(events[0]).toMatchObject({ kind: 'change', visibility: 'dm', source: 'agent' });
     expect((await dm.patch(`/sessions/${id}`, { id: 'u3' })).status).toBe(400);
     expect((await dm.patch('/sessions/ghost', { id: 'u3', summary: 'x' })).status).toBe(404);
