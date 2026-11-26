@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { useParams } from 'react-router-dom';
 import { DomainError, type PlayerPage as PlayerPageData } from '@questkeeper/domain';
 import { api, ApiError } from '../../api/client';
-import { Panel, Tag } from '../../components/Panel';
+import { Panel, Tag } from '@questkeeper/theme';
 import { InventoryFields } from '../characters/InventoryFields';
 import { fromItemDrafts, toItemDrafts, type ItemDraft } from '../characters/inventoryDraft';
 import { JournalView } from './JournalView';

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DomainError } from '@questkeeper/domain';
-import { Dialog } from './Dialog';
+import { Dialog } from '@questkeeper/theme';
 
 interface ConfirmDialogProps {
   title: string;

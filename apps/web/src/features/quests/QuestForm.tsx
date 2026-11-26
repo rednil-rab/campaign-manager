@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Dialog } from '../../components/Dialog';
+import { Dialog } from '@questkeeper/theme';
 import { SecrecyFields } from '../../components/SecrecyFields';
 import { DomainError } from '@questkeeper/domain';
 import type { Campaign, Id, Npc, Quest, QuestStatus } from '@questkeeper/domain';

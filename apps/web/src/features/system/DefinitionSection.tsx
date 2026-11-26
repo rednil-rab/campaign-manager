@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { Dialog } from '../../components/Dialog';
-import { Panel } from '../../components/Panel';
+import { Dialog, Panel } from '@questkeeper/theme';
 import type { RuleOption } from '@questkeeper/domain';
 import { NameForm } from './NameForm';
 

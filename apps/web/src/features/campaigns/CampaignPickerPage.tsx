@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
-import { Panel } from '../../components/Panel';
+import { Panel } from '@questkeeper/theme';
 import { useCampaignStore } from '../../store/campaignStore';
 import { DomainError } from '@questkeeper/domain';
 import { useAuthStore } from '../../store/authStore';

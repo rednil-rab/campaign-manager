@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DomainError } from '@questkeeper/domain';
-import { Dialog } from '../../components/Dialog';
+import { Dialog } from '@questkeeper/theme';
 import { generatedToBlob, generatePortrait, type GeneratedPortrait, type PortraitKind } from '../../api/portraits';
 import { useCampaignStore } from '../../store/campaignStore';
 
