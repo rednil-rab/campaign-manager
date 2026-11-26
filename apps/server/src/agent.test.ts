@@ -33,6 +33,7 @@ async function setup() {
   const as = (token: string) => ({
     get: (url: string) => request(app).get(`/api/agent/v1${url}`).set('Authorization', `Bearer ${token}`),
     post: (url: string, body: object) => request(app).post(`/api/agent/v1${url}`).set('Authorization', `Bearer ${token}`).send(body),
+    patch: (url: string, body: object) => request(app).patch(`/api/agent/v1${url}`).set('Authorization', `Bearer ${token}`).send(body),
   });
   const reload = async () => (await request(app).get('/api/campaigns').set('Cookie', cookie)).body[0];
   return { cookie, campaign, ownerId, kael, tokenFor, as, reload };
@@ -204,5 +205,165 @@ describe('agent changes', () => {
     const { campaign, tokenFor, as, reload } = await setup();
     await as(tokenFor()).post('/changes', { id: 'c1', action: 'set_npc_disposition', npcId: campaign.npcs[0].id, disposition: 'hostile' });
     expect((await reload()).events.at(-1)).toMatchObject({ kind: 'change', visibility: 'dm' });
+  });
+});
+
+describe('agent characters', () => {
+  const change = { id: 'p1', stats: { hp: 12 }, conditions: ['poisoned'], inventory: { upsert: [{ id: 'i-lamp', name: 'Lamp', quantity: 1, notes: '' }] } };
+
+  it('lets DM and recap tokens read every character, with the DM notes', async () => {
+    const { campaign, tokenFor, as } = await setup();
+    for (const mode of ['dm_turn', 'recap'] as const) {
+      const list = await as(tokenFor(mode)).get('/characters');
+      expect(list.status).toBe(200);
+      expect(list.body.map((p: { id: string }) => p.id)).toEqual(campaign.characters.map((p: { id: string }) => p.id));
+      expect(Object.keys(list.body[0]).sort()).toEqual(['characterClass', 'id', 'name', 'player', 'race']);
+      const one = await as(tokenFor(mode)).get(`/characters/${campaign.characters[1].id}`);
+      expect(one.body.id).toBe(campaign.characters[1].id);
+      expect(one.body).toHaveProperty('notes');
+    }
+    expect((await as(tokenFor('dm_turn')).get('/characters/ghost')).status).toBe(404);
+  });
+
+  it('limits a player token to its own character', async () => {
+    const { campaign, kael, tokenFor, as } = await setup();
+    const other = campaign.characters[1].id;
+    const list = await as(tokenFor()).get('/characters');
+    expect(list.body.map((p: { id: string }) => p.id)).toEqual([kael]);
+    const own = await as(tokenFor()).get(`/characters/${kael}`);
+    expect(own.status).toBe(200);
+    expect(own.body).not.toHaveProperty('notes');
+    expect(own.body).toHaveProperty('conditions');
+    expect((await as(tokenFor()).get(`/characters/${other}`)).status).toBe(403);
+    expect((await as(tokenFor()).patch(`/characters/${other}`, change)).status).toBe(403);
+  });
+
+  it('updates stats, conditions and inventory directly, and logs one DM-only event per request', async () => {
+    const { kael, tokenFor, as, reload } = await setup();
+    const res = await as(tokenFor('dm_turn')).patch(`/characters/${kael}`, change);
+    expect(res.status).toBe(200);
+    expect(res.body.stats.hp).toBe(12);
+    expect(res.body.conditions).toEqual(['poisoned']);
+    await as(tokenFor('dm_turn')).patch(`/characters/${kael}`, change);
+    const stored = (await reload()).characters.find((p: { id: string }) => p.id === kael);
+    expect(stored.inventory.filter((i: { id: string }) => i.id === 'i-lamp')).toHaveLength(1);
+    const logged = (await reload()).events.filter((e: { id: string }) => e.id === 'turn-1:p1:log');
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toMatchObject({ kind: 'change', visibility: 'dm', source: 'agent', characterId: kael });
+    await as(tokenFor('dm_turn')).patch(`/characters/${kael}`, { id: 'p2', inventory: { remove: ['i-lamp'] }, notes: 'DM only' });
+    const after = (await reload()).characters.find((p: { id: string }) => p.id === kael);
+    expect(after.inventory.some((i: { id: string }) => i.id === 'i-lamp')).toBe(false);
+    expect(after.notes).toBe('DM only');
+  });
+
+  it('lets a player token update its own sheet but not the DM notes', async () => {
+    const { kael, tokenFor, as } = await setup();
+    const ok = await as(tokenFor()).patch(`/characters/${kael}`, { id: 'p1', conditions: ['prone'], playerNotes: 'Hi' });
+    expect(ok.status).toBe(200);
+    expect(ok.body).not.toHaveProperty('notes');
+    expect(ok.body).toMatchObject({ conditions: ['prone'], playerNotes: 'Hi' });
+    expect((await as(tokenFor()).patch(`/characters/${kael}`, { id: 'p2', notes: 'sneaky' })).status).toBe(403);
+  });
+
+  it('keeps recap tokens read-only and rejects bad input without changing anything', async () => {
+    const { kael, tokenFor, as, reload } = await setup();
+    const before = await reload();
+    expect((await as(tokenFor('recap')).patch(`/characters/${kael}`, change)).status).toBe(403);
+    const dm = as(tokenFor('dm_turn'));
+    expect((await dm.patch(`/characters/${kael}`, { id: 'p1' })).status).toBe(400);
+    expect((await dm.patch(`/characters/${kael}`, { id: 'p1', stats: { ghost: 1 } })).status).toBe(400);
+    expect((await dm.patch(`/characters/${kael}`, { id: 'p1', stats: { hp: 2.5 } })).status).toBe(400);
+    expect((await dm.patch(`/characters/${kael}`, { id: 'p1', conditions: Array.from({ length: 21 }, (_, i) => `c${i}`) })).status).toBe(400);
+    expect((await dm.patch('/characters/ghost', change)).status).toBe(404);
+    expect(await reload()).toEqual(before);
+    expect((await request(app).get('/api/agent/v1/characters')).status).toBe(401);
+  });
+});
+
+describe('agent sessions', () => {
+  const create = { id: 's-new', title: 'Into the marsh', playedOn: '2026-11-26' };
+
+  it('lets DM and recap tokens read full sessions', async () => {
+    const { campaign, tokenFor, as } = await setup();
+    for (const mode of ['dm_turn', 'recap'] as const) {
+      const list = await as(tokenFor(mode)).get('/sessions');
+      expect(list.status).toBe(200);
+      expect(list.body).toHaveLength(campaign.sessions.length);
+      expect(list.body[0]).toHaveProperty('summary');
+      const one = await as(tokenFor(mode)).get(`/sessions/${campaign.sessions[0].id}`);
+      expect(one.body.id).toBe(campaign.sessions[0].id);
+    }
+    expect((await as(tokenFor('dm_turn')).get('/sessions/ghost')).status).toBe(404);
+  });
+
+  it('shows a player token only the sessions its character attended, without the summary', async () => {
+    const { tokenFor, as } = await setup();
+    await as(tokenFor('dm_turn')).post('/sessions', create);
+    const list = await as(tokenFor()).get('/sessions');
+    expect(list.body.length).toBeGreaterThan(0);
+    expect(list.body.map((s: { id: string }) => s.id)).not.toContain('s-new');
+    for (const s of list.body) expect(Object.keys(s).sort()).toEqual(['id', 'number', 'playedOn', 'title']);
+    expect((await as(tokenFor()).get('/sessions/s-new')).status).toBe(404);
+    const own = await as(tokenFor()).get(`/sessions/${list.body[0].id}`);
+    expect(own.status).toBe(200);
+    expect(own.body).not.toHaveProperty('summary');
+  });
+
+  it('creates a numbered session once, even when the request is retried', async () => {
+    const { campaign, tokenFor, as, reload } = await setup();
+    const first = await as(tokenFor('dm_turn')).post('/sessions', create);
+    expect(first.status).toBe(201);
+    expect(first.body).toMatchObject({ id: 's-new', number: campaign.sessions.length + 1, summary: '' });
+    const again = await as(tokenFor('dm_turn')).post('/sessions', create);
+    expect(again.status).toBe(200);
+    const stored = (await reload()).sessions;
+    expect(stored.filter((s: { id: string }) => s.id === 's-new')).toHaveLength(1);
+    const today = await as(tokenFor('dm_turn')).post('/sessions', { id: 's-today', title: 'Today' });
+    expect(today.body.playedOn).toBe(new Date().toISOString().slice(0, 10));
+  });
+
+  it('rejects bad session input and non-DM writers', async () => {
+    const { campaign, tokenFor, as } = await setup();
+    const dm = as(tokenFor('dm_turn'));
+    expect((await dm.post('/sessions', { ...create, playedOn: 'tomorrow' })).status).toBe(400);
+    expect((await dm.post('/sessions', { ...create, questIds: ['ghost'] })).status).toBe(400);
+    expect((await dm.post('/sessions', { id: 's-x' })).status).toBe(400);
+    for (const mode of ['recap', 'player_action'] as const) {
+      const w = as(tokenFor(mode));
+      expect((await w.post('/sessions', create)).status).toBe(403);
+      expect((await w.patch(`/sessions/${campaign.sessions[0].id}`, { id: 'u1', summary: 'x' })).status).toBe(403);
+      expect((await w.post(`/sessions/${campaign.sessions[0].id}/end`, {})).status).toBe(403);
+    }
+  });
+
+  it('replaces the summary, appends a note once, and logs a DM-only event', async () => {
+    const { campaign, tokenFor, as, reload } = await setup();
+    const id = campaign.sessions[0].id;
+    const dm = as(tokenFor('dm_turn'));
+    const replaced = await dm.patch(`/sessions/${id}`, { id: 'u1', summary: 'Fresh', title: 'Renamed' });
+    expect(replaced.body).toMatchObject({ summary: 'Fresh', title: 'Renamed' });
+    await dm.patch(`/sessions/${id}`, { id: 'u2', note: 'The bridge fell.' });
+    await dm.patch(`/sessions/${id}`, { id: 'u2', note: 'The bridge fell.' });
+    const stored = (await reload()).sessions.find((s: { id: string }) => s.id === id);
+    expect(stored.summary).toBe('Fresh\nThe bridge fell.');
+    const events = (await reload()).events.filter((e: { id: string }) => e.id.startsWith('turn-1:u'));
+    expect(events.map((e: { id: string }) => e.id)).toEqual(['turn-1:u1:log', 'turn-1:u2:log']);
+    expect(events[0]).toMatchObject({ kind: 'change', visibility: 'dm', source: 'agent' });
+    expect((await dm.patch(`/sessions/${id}`, { id: 'u3' })).status).toBe(400);
+    expect((await dm.patch('/sessions/ghost', { id: 'u3', summary: 'x' })).status).toBe(404);
+  });
+
+  it('ends a session once and still allows edits afterwards', async () => {
+    const { campaign, tokenFor, as, reload } = await setup();
+    const id = campaign.sessions[0].id;
+    const dm = as(tokenFor('dm_turn'));
+    const ended = await dm.post(`/sessions/${id}/end`, {});
+    expect(ended.status).toBe(200);
+    expect(typeof ended.body.endedAt).toBe('string');
+    const again = await dm.post(`/sessions/${id}/end`, {});
+    expect(again.body.endedAt).toBe(ended.body.endedAt);
+    expect((await dm.patch(`/sessions/${id}`, { id: 'u1', summary: 'Late edit' })).status).toBe(200);
+    expect((await reload()).sessions.find((s: { id: string }) => s.id === id)).toMatchObject({ summary: 'Late edit', endedAt: ended.body.endedAt });
+    expect((await dm.post('/sessions/ghost/end', {})).status).toBe(404);
   });
 });

@@ -1,8 +1,44 @@
-import type { AgentChange, GameEventKind } from '@questkeeper/domain';
-import { bad, DISPOSITIONS, isRecord, oneOf, QUEST_STATUSES, text } from '../campaigns/parse';
+import type { AgentChange, CharacterPatch, GameEventKind } from '@questkeeper/domain';
+import {
+  bad,
+  DISPOSITIONS,
+  isRecord,
+  oneOf,
+  parseConditions,
+  parseInventory,
+  parsePlayerNotes,
+  parseStats,
+  QUEST_STATUSES,
+  text,
+} from '../campaigns/parse';
 
 const requestId = (v: unknown) => text(v, 'id', 100, { required: true });
 const refId = (v: unknown, field: string) => text(v, field, 100, { required: true });
+
+const MAX_REMOVALS = 200;
+
+/** Validates a partial character update; at least one change is required. */
+export function parseCharacterPatch(body: unknown): { id: string; patch: CharacterPatch } {
+  if (!isRecord(body)) return bad('Update must be an object');
+  const id = requestId(body.id);
+  const patch: CharacterPatch = {};
+  if (body.stats !== undefined) patch.stats = parseStats(body.stats);
+  if (body.conditions !== undefined) patch.conditions = parseConditions(body.conditions);
+  if (body.inventory !== undefined) {
+    if (!isRecord(body.inventory)) return bad('inventory must be an object');
+    const { upsert, remove } = body.inventory;
+    patch.inventory = {};
+    if (upsert !== undefined) patch.inventory.upsert = parseInventory(upsert);
+    if (remove !== undefined) {
+      if (!Array.isArray(remove) || remove.length > MAX_REMOVALS) return bad(`remove must be a list of at most ${MAX_REMOVALS} item ids`);
+      patch.inventory.remove = remove.map((r) => refId(r, 'item id'));
+    }
+  }
+  if (body.playerNotes !== undefined) patch.playerNotes = parsePlayerNotes(body.playerNotes);
+  if (body.notes !== undefined) patch.notes = text(body.notes, 'notes', 5000);
+  if (Object.keys(patch).length === 0) return bad('Nothing to update');
+  return { id, patch };
+}
 
 function quantity(v: unknown): number {
   if (typeof v !== 'number' || !Number.isInteger(v)) return bad('quantity must be a whole number');

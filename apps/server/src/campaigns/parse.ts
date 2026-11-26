@@ -63,7 +63,7 @@ export function parseConditions(raw: unknown): string[] {
 const MAX_STATS = 100;
 const MAX_REFS = 500;
 
-function parseStats(raw: unknown): Stats {
+export function parseStats(raw: unknown): Stats {
   const value = raw ?? {};
   if (!isRecord(value)) return bad('stats must be an object');
   const entries = Object.entries(value);
@@ -131,12 +131,17 @@ export function parseNpc(body: unknown): Npc {
   };
 }
 
-export function parseSession(body: unknown): Session {
-  if (!isRecord(body)) return bad('Session must be an object');
-  const playedOn = text(body.playedOn, 'playedOn', 10, { required: true });
+export function parsePlayedOn(v: unknown): string {
+  const playedOn = text(v, 'playedOn', 10, { required: true });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(playedOn) || Number.isNaN(Date.parse(playedOn))) {
     return bad('playedOn must be a date (YYYY-MM-DD)');
   }
+  return playedOn;
+}
+
+export function parseSession(body: unknown): Session {
+  if (!isRecord(body)) return bad('Session must be an object');
+  const playedOn = parsePlayedOn(body.playedOn);
   const number = body.number;
   if (typeof number !== 'number' || !Number.isInteger(number) || number < 1 || number > 100000) {
     return bad('number must be a positive whole number');

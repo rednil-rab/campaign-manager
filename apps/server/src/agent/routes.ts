@@ -4,7 +4,9 @@ import {
   applyChange,
   describeChange,
   DomainError,
+  patchCharacter,
   playerContext,
+  playerView,
   queueChange,
   requiresApproval,
   rollDice,
@@ -17,8 +19,8 @@ import type { CampaignRepo } from '../campaigns/types';
 import type { CampaignUpdateHub } from '../campaigns/updates';
 import type { Config } from '../config';
 import { HttpError } from '../errors';
-import { parseAgentChange, parseAgentEvent, parseRollRequest } from './parse';
-import { requireAgentToken } from './token';
+import { parseAgentChange, parseAgentEvent, parseCharacterPatch, parseRollRequest } from './parse';
+import { requireAgentToken, type AgentGrant } from './token';
 
 type ChangeResult = { status: 'applied' | 'pending_approval' | 'rejected'; reason?: string };
 
@@ -143,6 +145,62 @@ export function agentRouter(
     }, updates);
 
     res.json({ id, action: change.action, ...result });
+  });
+
+  /** A player turn may only touch its own character; the other modes are not bound to one. */
+  const guardCharacter = (g: AgentGrant, characterId: string) => {
+    if (g.mode === 'player_action' && g.characterId !== characterId) {
+      throw new HttpError(403, 'This token is for a different character');
+    }
+  };
+
+  /** The full record for the DM modes; for a player turn, only what the player may see. */
+  const characterFor = (g: AgentGrant, c: Campaign, characterId: string) => {
+    const p = c.characters.find((x) => x.id === characterId);
+    if (!p) throw new HttpError(404, 'Character not found');
+    return g.mode === 'player_action' ? playerView(c, characterId)!.character : p;
+  };
+
+  router.get('/characters', async (req, res) => {
+    const g = req.agent!;
+    const c = await load(g.ownerId, g.campaignId);
+    res.json(
+      c.characters
+        .filter((p) => g.mode !== 'player_action' || p.id === g.characterId)
+        .map((p) => ({ id: p.id, name: p.name, player: p.player, race: p.race, characterClass: p.characterClass })),
+    );
+  });
+
+  router.get('/characters/:id', async (req, res) => {
+    const g = req.agent!;
+    const id = String(req.params.id);
+    guardCharacter(g, id);
+    res.json(characterFor(g, await load(g.ownerId, g.campaignId), id));
+  });
+
+  router.patch('/characters/:id', async (req, res) => {
+    const g = req.agent!;
+    const characterId = String(req.params.id);
+    if (g.mode === 'recap') throw new HttpError(403, 'Recap tokens are read-only');
+    guardCharacter(g, characterId);
+    const { id, patch } = parseCharacterPatch(req.body);
+    if (g.mode === 'player_action' && patch.notes !== undefined) {
+      throw new HttpError(403, 'Player turns cannot change the DM notes');
+    }
+    const saved = await mutateCampaign(campaigns, g.ownerId, g.campaignId, (c) => {
+      if (!c.characters.some((p) => p.id === characterId)) throw new HttpError(404, 'Character not found');
+      const changed = Object.keys(patch).join(', ');
+      return appendEvent(patchCharacter(c, characterId, patch), {
+        id: `${g.turnId}:${id}:log`,
+        at: new Date().toISOString(),
+        kind: 'change',
+        text: `Agent updated ${c.characters.find((p) => p.id === characterId)!.name}: ${changed}`,
+        visibility: 'dm',
+        source: 'agent',
+        characterId,
+      });
+    }, updates);
+    res.json(characterFor(g, saved, characterId));
   });
 
   return router;
