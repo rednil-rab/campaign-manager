@@ -280,6 +280,49 @@ describe('agent characters', () => {
   });
 });
 
+describe('agent records secrecy and conflicts', () => {
+  it('never puts DM notes or session summaries into a player-bound response', async () => {
+    const { campaign, cookie, kael, tokenFor, as } = await setup();
+    const base = `/api/campaigns/${campaign.id}`;
+    const pc = campaign.characters[0];
+    await request(app).put(`${base}/characters/${kael}`).set('Cookie', cookie).send({ ...pc, notes: 'DM-NOTE-MARKER' });
+    const s = campaign.sessions[0];
+    await request(app).put(`${base}/sessions/${s.id}`).set('Cookie', cookie).send({ ...s, summary: 'SUMMARY-MARKER' });
+    await as(tokenFor('dm_turn')).patch(`/characters/${campaign.characters[1].id}`, { id: 'x1', notes: 'OTHER-NOTE-MARKER' });
+
+    const player = as(tokenFor());
+    const bodies = [
+      await player.get('/characters'),
+      await player.get(`/characters/${kael}`),
+      await player.patch(`/characters/${kael}`, { id: 'x2', conditions: ['prone'] }),
+      await player.get('/sessions'),
+      await player.get(`/sessions/${s.id}`),
+      await player.get('/context/player'),
+    ];
+    for (const r of bodies) expect(r.status).toBe(200);
+    const json = JSON.stringify(bodies.map((r) => r.body));
+    for (const marker of ['DM-NOTE-MARKER', 'SUMMARY-MARKER', 'OTHER-NOTE-MARKER']) expect(json).not.toContain(marker);
+  });
+
+  it('answers 409 when the save keeps conflicting', async () => {
+    const campaigns = createMemoryCampaignRepo();
+    let conflict = false;
+    const conflicting = { ...campaigns, replace: async (...args: Parameters<typeof campaigns.replace>) => (conflict ? null : campaigns.replace(...args)) };
+    const conflictApp = createApp({ users: createMemoryUserRepo(), campaigns: conflicting, shares: createMemoryShareRepo(), config });
+    const reg = await request(conflictApp).post('/api/auth/register').send({ email: 'dm@example.com', password: 'correct horse' });
+    const cookie = String(reg.headers['set-cookie']).split(';')[0];
+    const created = (await request(conflictApp).post('/api/campaigns').set('Cookie', cookie).send({ sample: true })).body;
+    const ownerId = JSON.parse(Buffer.from(cookie.split('=')[1].split('.')[1], 'base64url').toString()).sub as string;
+    const token = mintAgentToken(config.jwtSecret, { ownerId, campaignId: created.id, turnId: 't', mode: 'dm_turn' });
+    conflict = true;
+    const res = await request(conflictApp)
+      .patch(`/api/agent/v1/characters/${created.characters[0].id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ id: 'p1', conditions: ['prone'] });
+    expect(res.status).toBe(409);
+  });
+});
+
 describe('agent sessions', () => {
   const create = { id: 's-new', title: 'Into the marsh', playedOn: '2026-11-26' };
 
