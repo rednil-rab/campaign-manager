@@ -76,7 +76,7 @@ export function parseStats(raw: unknown): Stats {
   return stats;
 }
 
-function parseIdList(raw: unknown, field: string): string[] {
+export function parseIdList(raw: unknown, field: string): string[] {
   const value = raw ?? [];
   if (!Array.isArray(value) || value.length > MAX_REFS) return bad(`${field} must be a list of at most ${MAX_REFS} ids`);
   return value.map((id) => text(id, field, 100, { required: true }));

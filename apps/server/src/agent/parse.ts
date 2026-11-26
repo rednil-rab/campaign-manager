@@ -1,11 +1,13 @@
-import type { AgentChange, CharacterPatch, GameEventKind } from '@questkeeper/domain';
+import type { AgentChange, CharacterPatch, GameEventKind, NewSession, SessionPatch } from '@questkeeper/domain';
 import {
   bad,
   DISPOSITIONS,
   isRecord,
   oneOf,
   parseConditions,
+  parseIdList,
   parseInventory,
+  parsePlayedOn,
   parsePlayerNotes,
   parseStats,
   QUEST_STATUSES,
@@ -36,6 +38,32 @@ export function parseCharacterPatch(body: unknown): { id: string; patch: Charact
   }
   if (body.playerNotes !== undefined) patch.playerNotes = parsePlayerNotes(body.playerNotes);
   if (body.notes !== undefined) patch.notes = text(body.notes, 'notes', 5000);
+  if (Object.keys(patch).length === 0) return bad('Nothing to update');
+  return { id, patch };
+}
+
+/** Validates a new session. The client-chosen id makes a retry harmless; the number is assigned by the server. */
+export function parseSessionCreate(body: unknown): NewSession {
+  if (!isRecord(body)) return bad('Session must be an object');
+  return {
+    id: requestId(body.id),
+    title: text(body.title, 'title', 120, { required: true }),
+    playedOn: body.playedOn === undefined ? new Date().toISOString().slice(0, 10) : parsePlayedOn(body.playedOn),
+    summary: text(body.summary ?? '', 'summary', 20000),
+    questIds: parseIdList(body.questIds, 'questIds'),
+    npcIds: parseIdList(body.npcIds, 'npcIds'),
+    characterIds: parseIdList(body.characterIds, 'characterIds'),
+  };
+}
+
+/** Validates a partial session update; at least one change is required. */
+export function parseSessionPatch(body: unknown): { id: string; patch: SessionPatch } {
+  if (!isRecord(body)) return bad('Update must be an object');
+  const id = requestId(body.id);
+  const patch: SessionPatch = {};
+  if (body.title !== undefined) patch.title = text(body.title, 'title', 120, { required: true });
+  if (body.summary !== undefined) patch.summary = text(body.summary, 'summary', 20000);
+  if (body.note !== undefined) patch.note = text(body.note, 'note', 2000, { required: true });
   if (Object.keys(patch).length === 0) return bad('Nothing to update');
   return { id, patch };
 }

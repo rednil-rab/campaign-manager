@@ -2,10 +2,14 @@ import { randomInt } from 'node:crypto';
 import {
   appendEvent,
   applyChange,
+  createSession,
   describeChange,
   DomainError,
+  endSession,
   patchCharacter,
+  patchSession,
   playerContext,
+  playerSessions,
   playerView,
   queueChange,
   requiresApproval,
@@ -19,7 +23,7 @@ import type { CampaignRepo } from '../campaigns/types';
 import type { CampaignUpdateHub } from '../campaigns/updates';
 import type { Config } from '../config';
 import { HttpError } from '../errors';
-import { parseAgentChange, parseAgentEvent, parseCharacterPatch, parseRollRequest } from './parse';
+import { parseAgentChange, parseAgentEvent, parseCharacterPatch, parseRollRequest, parseSessionCreate, parseSessionPatch } from './parse';
 import { requireAgentToken, type AgentGrant } from './token';
 
 type ChangeResult = { status: 'applied' | 'pending_approval' | 'rejected'; reason?: string };
@@ -201,6 +205,92 @@ export function agentRouter(
       });
     }, updates);
     res.json(characterFor(g, saved, characterId));
+  });
+
+  /** Session writes belong to the DM's own turn. */
+  const requireDm = (g: AgentGrant) => {
+    if (g.mode !== 'dm_turn') throw new HttpError(403, 'Only DM turns can change sessions');
+  };
+
+  const sessionFor = (g: AgentGrant, c: Campaign, sessionId: string) => {
+    const s = c.sessions.find((x) => x.id === sessionId);
+    // A player turn gets the same 404 for a session it did not attend as for one that does not exist.
+    if (!s || (g.mode === 'player_action' && !s.characterIds.includes(g.characterId ?? ''))) {
+      throw new HttpError(404, 'Session not found');
+    }
+    return g.mode === 'player_action' ? playerSessions(c, g.characterId!).find((x) => x.id === sessionId)! : s;
+  };
+
+  router.get('/sessions', async (req, res) => {
+    const g = req.agent!;
+    const c = await load(g.ownerId, g.campaignId);
+    res.json(g.mode === 'player_action' ? playerSessions(c, g.characterId ?? '') : c.sessions);
+  });
+
+  router.get('/sessions/:id', async (req, res) => {
+    const g = req.agent!;
+    res.json(sessionFor(g, await load(g.ownerId, g.campaignId), String(req.params.id)));
+  });
+
+  /** Applies a session change and logs it for the DM, in one save. */
+  const changeSession = async (
+    g: AgentGrant,
+    sessionId: string,
+    requestId: string,
+    describe: string,
+    apply: (c: Campaign) => Campaign,
+  ) =>
+    mutateCampaign(campaigns, g.ownerId, g.campaignId, (c) => {
+      if (!c.sessions.some((s) => s.id === sessionId)) throw new HttpError(404, 'Session not found');
+      return appendEvent(apply(c), {
+        id: `${g.turnId}:${requestId}:log`,
+        at: new Date().toISOString(),
+        kind: 'change',
+        text: describe,
+        visibility: 'dm',
+        source: 'agent',
+        sessionId,
+      });
+    }, updates);
+
+  router.post('/sessions', async (req, res) => {
+    const g = req.agent!;
+    requireDm(g);
+    const input = parseSessionCreate(req.body);
+    const existed = (await load(g.ownerId, g.campaignId)).sessions.some((s) => s.id === input.id);
+    const saved = await mutateCampaign(campaigns, g.ownerId, g.campaignId, (c) =>
+      appendEvent(createSession(c, input), {
+        id: `${g.turnId}:session:${input.id}:log`,
+        at: new Date().toISOString(),
+        kind: 'change',
+        text: `Agent created session: ${input.title}`,
+        visibility: 'dm',
+        source: 'agent',
+        sessionId: input.id,
+      }),
+    updates);
+    res.status(existed ? 200 : 201).json(saved.sessions.find((s) => s.id === input.id));
+  });
+
+  router.patch('/sessions/:id', async (req, res) => {
+    const g = req.agent!;
+    requireDm(g);
+    const sessionId = String(req.params.id);
+    const { id, patch } = parseSessionPatch(req.body);
+    const saved = await changeSession(g, sessionId, id, `Agent updated session: ${Object.keys(patch).join(', ')}`, (c) =>
+      patchSession(c, sessionId, patch),
+    );
+    res.json(saved.sessions.find((s) => s.id === sessionId));
+  });
+
+  router.post('/sessions/:id/end', async (req, res) => {
+    const g = req.agent!;
+    requireDm(g);
+    const sessionId = String(req.params.id);
+    const saved = await changeSession(g, sessionId, `end:${sessionId}`, 'Agent ended the session', (c) =>
+      endSession(c, sessionId, new Date().toISOString()),
+    );
+    res.json(saved.sessions.find((s) => s.id === sessionId));
   });
 
   return router;
