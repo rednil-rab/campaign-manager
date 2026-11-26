@@ -2,6 +2,7 @@ export * from './actions';
 export * from './integrity';
 export * from './gameLog';
 export * from './agentChanges';
+export * from './agentRecords';
 export * from './dice';
 export * from './library';
 export * from './playerView';
